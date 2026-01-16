@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import LandingPage from './pages/LandingPage'
-import DesignSystem from './pages/DesignSystem'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import VerifyEmail from './pages/auth/VerifyEmail'
@@ -10,7 +9,7 @@ import EventDetail from './pages/discovery/EventDetail'
 import EventForm from './pages/ngo/EventForm'
 import AdminDashboard from './pages/admin/AdminDashboard'
 
-type View = 'landing' | 'design' | 'login' | 'register' | 'verify' | 'dashboard' | 'discovery' | 'detail' | 'ngo-create' | 'admin'
+type View = 'landing' | 'login' | 'register' | 'verify' | 'dashboard' | 'discovery' | 'detail' | 'ngo-create' | 'admin'
 
 function App() {
   const [view, setView] = useState<View>('landing')
@@ -18,7 +17,6 @@ function App() {
   // Simple router simulation for development purposes
   const renderView = () => {
     switch (view) {
-      case 'design': return <DesignSystem />;
       case 'login': return <Login />;
       case 'register': return <Register />;
       case 'verify': return <VerifyEmail />;
@@ -43,7 +41,6 @@ function App() {
           <NavButton active={view === 'detail'} onClick={() => setView('detail')}>Detail</NavButton>
           <NavButton active={view === 'login'} onClick={() => setView('login')}>Login</NavButton>
           <NavButton active={view === 'register'} onClick={() => setView('register')}>Register</NavButton>
-          <NavButton active={view === 'design'} onClick={() => setView('design')}>UI System</NavButton>
         </div>
       </div>
       {renderView()}
@@ -56,8 +53,8 @@ function NavButton({ children, active, onClick }: { children: React.ReactNode, a
     <button
       onClick={onClick}
       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${active
-          ? 'bg-hive-primary text-white shadow-sm'
-          : 'bg-slate-50 text-hive-text-secondary hover:bg-slate-100'
+        ? 'bg-hive-primary text-white shadow-sm'
+        : 'bg-slate-50 text-hive-text-secondary hover:bg-slate-100'
         }`}
     >
       {children}
