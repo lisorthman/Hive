@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-hive-primary: #2F855A;
+  --color-hive-secondary: #319795;
+  --color-hive-background: #F7FAFC;
+  --color-hive-surface: #FFFFFF;
+  --color-hive-text-primary: #2D3748;
+  --color-hive-text-secondary: #718096;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --spacing-8px: 8px;
+  --radius-medium: 8px;
+  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+@layer base {
+  body {
+    @apply bg-hive-background text-hive-text-primary font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-hive-text-primary font-bold tracking-tight;
+  }
+}
