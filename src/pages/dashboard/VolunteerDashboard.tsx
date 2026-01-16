@@ -59,7 +59,7 @@ export default function VolunteerDashboard() {
                         className="flex flex-col md:flex-row md:items-center justify-between gap-6"
                     >
                         <div>
-                            <h2 className="text-3xl font-extrabold tracking-tight">Welcome back, Alex! 👋</h2>
+                            <h2 className="text-3xl font-extrabold tracking-tight">Welcome back, Alex!</h2>
                             <p className="text-hive-text-secondary mt-1">You've reached <span className="text-hive-primary font-bold">85%</span> of your monthly volunteering goal. Keep going!</p>
                         </div>
                         <div className="flex gap-3">

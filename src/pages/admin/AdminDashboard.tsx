@@ -14,7 +14,8 @@ import {
     Search,
     UserCheck,
     Ban,
-    Settings
+    Settings,
+    Hexagon
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -75,8 +76,10 @@ export default function AdminDashboard() {
             <aside className="w-full lg:w-64 bg-white border-r border-slate-100 flex-shrink-0">
                 <div className="h-20 flex items-center px-6 border-b border-slate-100">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-hive-primary rounded-lg flex items-center justify-center text-white font-black text-xl">H</div>
-                        <span className="font-black text-xl text-hive-text-primary tracking-tight">HIVE <span className="text-xs font-bold text-hive-primary ml-1 px-1.5 py-0.5 bg-hive-primary/10 rounded">ADMIN</span></span>
+                        <div className="bg-hive-primary p-1.5 rounded-lg">
+                            <Hexagon className="h-5 w-5 text-white fill-white/20" />
+                        </div>
+                        <span className="font-black text-xl text-hive-text-primary tracking-tight">Hive <span className="text-[10px] font-bold text-hive-primary ml-1 px-1.5 py-0.5 bg-hive-primary/10 rounded tracking-widest uppercase">Admin</span></span>
                     </div>
                 </div>
                 <nav className="p-4 space-y-1">

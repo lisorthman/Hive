@@ -16,7 +16,8 @@ import {
     Zap,
     ArrowRight
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useInView, useMotionValue, useSpring } from 'framer-motion';
+import { useEffect, useRef } from 'react';
 
 export default function LandingPage() {
     return (
@@ -305,10 +306,49 @@ function EventCard({ image, ngo, title, date, location, category }: { image: str
     );
 }
 
+function Counter({ value, duration = 2 }: { value: string, duration?: number }) {
+    const ref = useRef<HTMLSpanElement>(null);
+    const isInView = useInView(ref, { once: true, margin: "-100px" });
+
+    // Parse number from string (e.g., "12,450+" -> 12450)
+    const numericValue = parseInt(value.replace(/[,+]/g, ''));
+    const suffix = value.match(/[+]/g) ? '+' : '';
+    const hasComma = value.includes(',');
+
+    const motionValue = useMotionValue(0);
+    const springValue = useSpring(motionValue, {
+        duration: duration * 1000,
+        bounce: 0,
+    });
+
+    useEffect(() => {
+        if (isInView) {
+            motionValue.set(numericValue);
+        }
+    }, [isInView, motionValue, numericValue]);
+
+    useEffect(() => {
+        springValue.on("change", (latest) => {
+            if (ref.current) {
+                const rounded = Math.floor(latest);
+                let formatted = rounded.toString();
+                if (hasComma) {
+                    formatted = rounded.toLocaleString();
+                }
+                ref.current.textContent = formatted + suffix;
+            }
+        });
+    }, [springValue, suffix, hasComma]);
+
+    return <span ref={ref}>0{suffix}</span>;
+}
+
 function StatItem({ value, label }: { value: string, label: string }) {
     return (
         <div className="space-y-1">
-            <div className="text-4xl md:text-5xl font-black">{value}</div>
+            <div className="text-4xl md:text-5xl font-black">
+                <Counter value={value} />
+            </div>
             <div className="text-sm font-medium uppercase tracking-widest opacity-80">{label}</div>
         </div>
     );

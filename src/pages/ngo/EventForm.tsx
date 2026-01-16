@@ -9,13 +9,19 @@ import {
     Save,
     X,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Globe,
+    Heart,
+    Zap,
+    Award,
+    Briefcase
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
+import { cn } from '../../lib/utils';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -126,20 +132,41 @@ export default function EventForm() {
                             />
                             <p className="text-[10px] font-bold text-hive-text-secondary uppercase tracking-tight">Recommended: 150+ characters</p>
                         </div>
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-hive-text-primary">Mission Category</label>
-                                <select
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-hive-primary/20 focus:border-hive-primary transition-all text-sm font-medium"
-                                    value={formData.category}
-                                    onChange={(e) => handleInputChange('category', e.target.value)}
-                                >
-                                    <option>Environment</option>
-                                    <option>Education</option>
-                                    <option>Social Work</option>
-                                    <option>Healthcare</option>
-                                    <option>Disaster Relief</option>
-                                </select>
+                        <div className="space-y-4">
+                            <label className="text-sm font-bold text-hive-text-primary">Mission Category</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {[
+                                    { id: 'Environment', icon: Globe, color: 'text-green-600', bg: 'bg-green-50' },
+                                    { id: 'Education', icon: Award, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                    { id: 'Social Work', icon: Heart, color: 'text-rose-600', bg: 'bg-rose-50' },
+                                    { id: 'Healthcare', icon: Zap, color: 'text-amber-600', bg: 'bg-amber-50' },
+                                    { id: 'Disaster Relief', icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50' },
+                                    { id: 'Animal Welfare', icon: Info, color: 'text-purple-600', bg: 'bg-purple-50' },
+                                    { id: 'Arts & Culture', icon: Package, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                                    { id: 'Other', icon: Briefcase, color: 'text-slate-600', bg: 'bg-slate-50' },
+                                ].map((cat) => (
+                                    <button
+                                        key={cat.id}
+                                        type="button"
+                                        onClick={() => handleInputChange('category', cat.id)}
+                                        className={cn(
+                                            "flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all gap-2",
+                                            formData.category === cat.id
+                                                ? "border-hive-primary bg-hive-primary/5 shadow-sm"
+                                                : "border-slate-100 hover:border-slate-200 bg-white"
+                                        )}
+                                    >
+                                        <div className={cn("p-2 rounded-lg", cat.bg)}>
+                                            <cat.icon className={cn("h-5 w-5", cat.color)} />
+                                        </div>
+                                        <span className={cn(
+                                            "text-[10px] font-bold uppercase tracking-wider",
+                                            formData.category === cat.id ? "text-hive-primary" : "text-hive-text-secondary"
+                                        )}>
+                                            {cat.id}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </div>
