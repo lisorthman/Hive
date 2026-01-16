@@ -8,8 +8,9 @@ import VolunteerDashboard from './pages/dashboard/VolunteerDashboard'
 import EventDiscovery from './pages/discovery/EventDiscovery'
 import EventDetail from './pages/discovery/EventDetail'
 import EventForm from './pages/ngo/EventForm'
+import AdminDashboard from './pages/admin/AdminDashboard'
 
-type View = 'landing' | 'design' | 'login' | 'register' | 'verify' | 'dashboard' | 'discovery' | 'detail' | 'ngo-create'
+type View = 'landing' | 'design' | 'login' | 'register' | 'verify' | 'dashboard' | 'discovery' | 'detail' | 'ngo-create' | 'admin'
 
 function App() {
   const [view, setView] = useState<View>('landing')
@@ -25,6 +26,7 @@ function App() {
       case 'discovery': return <EventDiscovery />;
       case 'detail': return <EventDetail />;
       case 'ngo-create': return <EventForm />;
+      case 'admin': return <AdminDashboard />;
       default: return <LandingPage />;
     }
   }
@@ -34,13 +36,13 @@ function App() {
       <div className="fixed bottom-4 right-4 z-[9999] flex flex-wrap gap-2 pointer-events-none">
         <div className="bg-white/80 backdrop-blur-md p-2 rounded-xl shadow-2xl border border-slate-200 pointer-events-auto flex gap-2 overflow-auto max-w-[90vw]">
           <NavButton active={view === 'landing'} onClick={() => setView('landing')}>Landing</NavButton>
+          <NavButton active={view === 'admin'} onClick={() => setView('admin')}>Admin</NavButton>
           <NavButton active={view === 'discovery'} onClick={() => setView('discovery')}>Discovery</NavButton>
-          <NavButton active={view === 'detail'} onClick={() => setView('detail')}>Detail</NavButton>
           <NavButton active={view === 'ngo-create'} onClick={() => setView('ngo-create')}>NGO Create</NavButton>
           <NavButton active={view === 'dashboard'} onClick={() => setView('dashboard')}>Dashboard</NavButton>
+          <NavButton active={view === 'detail'} onClick={() => setView('detail')}>Detail</NavButton>
           <NavButton active={view === 'login'} onClick={() => setView('login')}>Login</NavButton>
           <NavButton active={view === 'register'} onClick={() => setView('register')}>Register</NavButton>
-          <NavButton active={view === 'verify'} onClick={() => setView('verify')}>Email Verify</NavButton>
           <NavButton active={view === 'design'} onClick={() => setView('design')}>UI System</NavButton>
         </div>
       </div>
