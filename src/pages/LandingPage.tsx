@@ -2,6 +2,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Navbar } from '../components/layout/Navbar';
+import { Logo } from '../components/ui/Logo';
 import {
     Search,
     MapPin,
@@ -200,12 +201,7 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid md:grid-cols-4 gap-12 mb-12">
                         <div className="col-span-2 space-y-6">
-                            <div className="flex items-center gap-2">
-                                <div className="bg-hive-primary p-1 rounded">
-                                    <Hexagon className="h-5 w-5 text-white fill-white/20" />
-                                </div>
-                                <span className="text-xl font-black text-hive-text-primary tracking-tight">Hive</span>
-                            </div>
+                            <Logo />
                             <p className="text-hive-text-secondary max-w-sm">
                                 The community-first platform for discovering, managing, and tracking volunteering impact across the globe.
                             </p>
@@ -243,21 +239,6 @@ export default function LandingPage() {
     );
 }
 
-function Hexagon({ className }: { className?: string }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-        </svg>
-    );
-}
 
 function StepCard({ icon, title, description, delay }: { icon: React.ReactNode, title: string, description: string, delay: number }) {
     return (

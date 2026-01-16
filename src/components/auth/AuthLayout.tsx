@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hexagon } from 'lucide-react';
+import { Logo } from '../ui/Logo';
 import { motion } from 'framer-motion';
 
 interface AuthLayoutProps {
@@ -17,9 +17,7 @@ export const AuthLayout = ({ children, title, subtitle }: AuthLayoutProps) => {
                 className="sm:mx-auto sm:w-full sm:max-w-md"
             >
                 <div className="flex justify-center">
-                    <div className="bg-hive-primary p-2.5 rounded-xl shadow-soft">
-                        <Hexagon className="h-8 w-8 text-white fill-white/20" />
-                    </div>
+                    <Logo size="lg" showText={false} className="shadow-soft rounded-xl" />
                 </div>
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-hive-text-primary tracking-tight">
                     {title}

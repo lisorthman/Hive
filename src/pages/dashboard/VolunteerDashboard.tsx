@@ -14,6 +14,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { Logo } from '../../components/ui/Logo';
 import { cn } from '../../lib/utils';
 import { motion } from 'framer-motion';
 
@@ -23,14 +24,7 @@ export default function VolunteerDashboard() {
             {/* Dashboard Top Nav / Header */}
             <header className="bg-white border-b border-slate-100 sticky top-0 z-30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-hive-primary/10 flex items-center justify-center text-hive-primary">
-                            <span className="font-black text-lg">H</span>
-                        </div>
-                        <div className="hidden sm:block">
-                            <h1 className="text-xl font-bold">Volunteer Dashboard</h1>
-                        </div>
-                    </div>
+                    <Logo size="md" />
 
                     <div className="flex items-center gap-4">
                         <button className="p-2 text-hive-text-secondary hover:bg-slate-50 rounded-lg transition-colors relative">
