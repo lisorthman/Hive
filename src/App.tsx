@@ -1,8 +1,8 @@
-import DesignSystem from './pages/DesignSystem'
+import LandingPage from './pages/LandingPage'
 
 function App() {
   return (
-    <DesignSystem />
+    <LandingPage />
   )
 }
 
