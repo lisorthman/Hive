@@ -11,32 +11,36 @@ Hive is a centralized community volunteering and event management platform desig
 - **🏆 Gamification**: Stay motivated with badges, leaderboards, and a digital volunteering resume that tracks your contributions.
 - **📱 Responsive Design**: A high-performance, mobile-friendly interface built for both web and mobile users.
 
-## 💻 Tech Stack
+## 📂 Project Structure
 
-- **Frontend**: React 19, Vite, Tailwind CSS 4, Framer Motion
-- **Maps**: Leaflet.js / React Leaflet
-- **Icons**: Lucide React
-- **Authentication**: JWT-based secure access (Role-Based)
+The project is divided into two main parts:
 
-## 🛠️ Getting Started
+- **[backend](file:///backend)**: Node.js/Express server with MongoDB integration.
+- **[frontend](file:///frontend)**: React application built with Vite and Tailwind CSS.
+
+## 🚀 Getting Started
 
 ### Prerequisites
 - Node.js (v18 or higher)
 - npm or yarn
+- MongoDB (Running locally or a URI)
 
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/lisorthman/Hive.git
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
+### Installation & Running
+
+#### 1. Backend Setup
+```bash
+cd backend
+npm install
+npm run dev
+```
+Make sure to create a `.env` file in the `backend` directory based on the configuration logic.
+
+#### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ## 📄 License
 This project is developed as part of a Software Requirements Specification for community engagement.
