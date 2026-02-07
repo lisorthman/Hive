@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { motion, useInView, useMotionValue, useSpring } from 'framer-motion';
 import { useEffect, useRef } from 'react';
+import { authService } from '../lib/auth';
 
 export default function LandingPage() {
     const navigate = useNavigate();
@@ -262,8 +263,19 @@ function StepCard({ icon, title, description, delay }: { icon: React.ReactNode, 
 
 function EventCard({ image, ngo, title, date, location, category }: { image: string, ngo: string, title: string, date: string, location: string, category: string }) {
     const navigate = useNavigate();
+
+    const handleViewDetail = () => {
+        const user = authService.getCurrentUser();
+        if (!user) {
+            alert("Please create a volunteer account to see the full mission details and join the cause!");
+            navigate('/register', { state: { role: 'volunteer' } });
+            return;
+        }
+        navigate('/discovery'); // Landing page cards usually go to discovery or a specific ID if available
+    };
+
     return (
-        <Card padding="none" className="group cursor-pointer hover:translate-y-[-4px] transition-all duration-300" onClick={() => navigate('/detail')}>
+        <Card padding="none" className="group cursor-pointer hover:translate-y-[-4px] transition-all duration-300" onClick={handleViewDetail}>
             <div className="h-48 overflow-hidden relative">
                 <div className="absolute top-4 right-4 z-10">
                     <Badge variant="primary" className="bg-white/90 backdrop-blur-sm shadow-sm">{category}</Badge>
@@ -281,7 +293,7 @@ function EventCard({ image, ngo, title, date, location, category }: { image: str
                         <MapPin className="h-4 w-4" /> <span>{location}</span>
                     </div>
                 </div>
-                <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent group">
+                <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent group" onClick={(e) => { e.stopPropagation(); handleViewDetail(); }}>
                     <span className="text-sm font-bold">Details</span>
                     <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </Button>

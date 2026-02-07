@@ -29,13 +29,25 @@ const userSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    verificationStatus: {
+        type: String,
+        enum: ['pending', 'verified', 'rejected'],
+        default: function () {
+            // NGOs start as pending, others as verified
+            return this.role === 'ngo' ? 'pending' : 'verified';
+        }
+    },
+    verificationDocument: {
+        type: String, // Path to the uploaded PDF
+        required: [function () { return this.role === 'ngo'; }, 'NGOs must upload a verification document']
     }
 });
 
 // Encrypt password using bcrypt
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
     if (!this.isModified('password')) {
-        next();
+        return;
     }
 
     const salt = await bcrypt.genSalt(10);

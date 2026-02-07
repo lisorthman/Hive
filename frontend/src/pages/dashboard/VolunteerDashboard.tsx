@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Calendar,
@@ -11,7 +12,8 @@ import {
     MoreVertical,
     TrendingUp,
     Users,
-    LogOut
+    LogOut,
+    Loader2
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -20,19 +22,57 @@ import { Logo } from '../../components/ui/Logo';
 import { cn } from '../../lib/utils';
 import { motion } from 'framer-motion';
 import { authService } from '../../lib/auth';
+import { eventService } from '../../lib/events';
 
 export default function VolunteerDashboard() {
     const navigate = useNavigate();
     const user = authService.getCurrentUser();
+    const [recommendedEvents, setRecommendedEvents] = useState<any[]>([]);
+    const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
+    const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setIsLoading(true);
+                const [allEvents, joined] = await Promise.all([
+                    eventService.getEvents(),
+                    eventService.getJoinedEvents()
+                ]);
+
+                const ids = new Set<string>(joined.map((e: any) => e._id));
+                setJoinedIds(ids);
+
+                // Show top 4 events as recommendations
+                setRecommendedEvents(allEvents.slice(0, 4));
+                setJoinedEvents(joined);
+            } catch (err) {
+                console.error('Error fetching dashboard data:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     const handleLogout = () => {
         authService.logout();
         navigate('/login');
     };
 
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-hive-background">
+                <Loader2 className="h-10 w-10 text-hive-primary animate-spin" />
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-hive-background pb-12 text-hive-text-primary">
-            {/* Dashboard Top Nav / Header */}
+            {/* ... header ... */}
             <header className="bg-white border-b border-slate-100 sticky top-0 z-30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
                     <Logo size="md" />
@@ -44,7 +84,7 @@ export default function VolunteerDashboard() {
                         </button>
                         <div className="flex items-center gap-3 pl-4 border-l border-slate-100 font-bold">
                             <div className="text-right hidden sm:block">
-                                <div className="text-sm">{user?.name || 'Alex Johnson'}</div>
+                                <div className="text-sm">{user?.name || 'Volunteer'}</div>
                                 <div className="text-[10px] text-hive-primary uppercase tracking-wider">{user?.role || 'Volunteer'}</div>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden cursor-pointer">
@@ -71,8 +111,8 @@ export default function VolunteerDashboard() {
                         className="flex flex-col md:flex-row md:items-center justify-between gap-6"
                     >
                         <div>
-                            <h2 className="text-3xl font-extrabold tracking-tight">Welcome back, {user?.name.split(' ')[0] || 'Alex'}!</h2>
-                            <p className="text-hive-text-secondary mt-1">You've reached <span className="text-hive-primary font-bold">85%</span> of your monthly volunteering goal. Keep going!</p>
+                            <h2 className="text-3xl font-extrabold tracking-tight">Welcome back, {user?.name.split(' ')[0] || 'Volunteer'}!</h2>
+                            <p className="text-hive-text-secondary mt-1">You've joined <span className="text-hive-primary font-bold">{joinedEvents.length}</span> missions so far. Great job!</p>
                         </div>
                         <div className="flex gap-3">
                             <Button variant="outline" size="sm" className="gap-2">
@@ -84,36 +124,35 @@ export default function VolunteerDashboard() {
                         </div>
                     </motion.div>
                 </section>
-                {/* ... rest of the component remains the same ... */}
 
                 {/* Stats Grid */}
                 <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
                     <StatCard
                         icon={<Clock className="h-5 w-5" />}
                         label="Total Hours"
-                        value="128.5"
+                        value={(joinedEvents.length * 4).toString()} // Simulated hours calculation
                         trend="+12h this month"
                         color="primary"
                     />
                     <StatCard
                         icon={<Calendar className="h-5 w-5" />}
-                        label="Events Completed"
-                        value="24"
+                        label="Events Joined"
+                        value={joinedEvents.length.toString()}
                         trend="Rank: Top 5%"
                         color="secondary"
                     />
                     <StatCard
                         icon={<Award className="h-5 w-5" />}
                         label="Badges Earned"
-                        value="12"
-                        trend="3 new this month"
+                        value="3"
+                        trend="New badge unlocked"
                         color="primary"
                     />
                     <StatCard
                         icon={<TrendingUp className="h-5 w-5" />}
                         label="Community Score"
-                        value="2,450"
-                        trend="Level 14"
+                        value={(joinedEvents.length * 100 + 450).toString()}
+                        trend="Level 2"
                         color="secondary"
                     />
                 </section>
@@ -125,23 +164,28 @@ export default function VolunteerDashboard() {
                         <section className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-xl font-bold">Recommended for You</h3>
-                                <button className="text-sm font-bold text-hive-primary hover:underline">See all</button>
+                                <button className="text-sm font-bold text-hive-primary hover:underline" onClick={() => navigate('/discovery')}>See all</button>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <DashboardEventCard
-                                    image="https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80"
-                                    title="Local Park Reforestation"
-                                    ngo="EcoWatch"
-                                    date="Oct 20, 2024"
-                                    hours="4h"
-                                />
-                                <DashboardEventCard
-                                    image="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=800&q=80"
-                                    title="Community Soup Kitchen"
-                                    ngo="FoodShare"
-                                    date="Oct 22, 2024"
-                                    hours="3h"
-                                />
+                                {recommendedEvents.length > 0 ? (
+                                    recommendedEvents.map(event => (
+                                        <DashboardEventCard
+                                            key={event._id}
+                                            id={event._id}
+                                            image={event.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80"}
+                                            title={event.title}
+                                            ngo={event.ngoName}
+                                            date={new Date(event.date).toLocaleDateString()}
+                                            hours="4h"
+                                            onClick={() => navigate(`/event/${event._id}`)}
+                                            isJoined={joinedIds.has(event._id)}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="col-span-2 py-10 text-center bg-white rounded-xl border border-dashed border-slate-200">
+                                        <p className="text-hive-text-secondary italic">No new recommendations right now.</p>
+                                    </div>
+                                )}
                             </div>
                         </section>
 
@@ -150,24 +194,26 @@ export default function VolunteerDashboard() {
                             <h3 className="text-xl font-bold">Your Upcoming Events</h3>
                             <Card padding="none">
                                 <div className="divide-y divide-slate-50">
-                                    <UpcomingListItem
-                                        title="Beach Cleanup Drive"
-                                        ngo="GreenEarth"
-                                        date="Oct 24, 2024 • 08:30 AM"
-                                        status="Confirmed"
-                                    />
-                                    <UpcomingListItem
-                                        title="Digital Literacy Workshop"
-                                        ngo="Tech4All"
-                                        date="Oct 28, 2024 • 02:00 PM"
-                                        status="Pending"
-                                    />
-                                    <UpcomingListItem
-                                        title="Senior Citizen Social"
-                                        ngo="CareUnity"
-                                        date="Nov 02, 2024 • 10:00 AM"
-                                        status="Confirmed"
-                                    />
+                                    {joinedEvents.length > 0 ? (
+                                        joinedEvents.map(event => (
+                                            <UpcomingListItem
+                                                key={event._id}
+                                                title={event.title}
+                                                ngo={event.ngoName}
+                                                date={`${new Date(event.date).toLocaleDateString()} • 09:00 AM`}
+                                                status="Confirmed"
+                                                onClick={() => navigate(`/event/${event._id}`)}
+                                            />
+                                        ))
+                                    ) : (
+                                        <div className="p-12 text-center space-y-4">
+                                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                                                <Calendar className="h-8 w-8 text-slate-300" />
+                                            </div>
+                                            <p className="text-hive-text-secondary">You haven't joined any missions yet.</p>
+                                            <Button variant="outline" size="sm" onClick={() => navigate('/discovery')}>Discover Missions</Button>
+                                        </div>
+                                    )}
                                 </div>
                             </Card>
                         </section>
@@ -224,20 +270,25 @@ function StatCard({ icon, label, value, trend, color }: { icon: React.ReactNode,
     );
 }
 
-function DashboardEventCard({ image, title, ngo, date, hours }: { image: string, title: string, ngo: string, date: string, hours: string }) {
+function DashboardEventCard({ image, title, ngo, date, hours, onClick, isJoined }: { id: string, image: string, title: string, ngo: string, date: string, hours: string, onClick?: () => void, isJoined?: boolean }) {
     return (
-        <div className="group cursor-pointer bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-soft transition-all overflow-hidden">
+        <div className="group cursor-pointer bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-soft transition-all overflow-hidden" onClick={onClick}>
             <div className="h-32 overflow-hidden relative">
                 <img src={image} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                <div className="absolute top-2 right-2">
+                <div className="absolute top-2 right-2 flex flex-col gap-2 items-end">
                     <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm text-[10px]">{hours}</Badge>
+                    {isJoined && (
+                        <Badge variant="primary" className="bg-hive-primary text-white border-none text-[10px] shadow-sm">Already Joined</Badge>
+                    )}
                 </div>
             </div>
             <div className="p-4 space-y-2">
                 <div className="text-[10px] font-bold text-hive-primary uppercase tracking-widest">{ngo}</div>
                 <h4 className="font-bold truncate">{title}</h4>
                 <div className="flex items-center justify-between">
-                    <span className="text-xs text-hive-text-secondary">{date}</span>
+                    <span className={cn("text-xs", isJoined ? "text-hive-primary font-bold" : "text-hive-text-secondary")}>
+                        {isJoined ? "Mission Secured" : date}
+                    </span>
                     <ChevronRight className="h-4 w-4 text-hive-text-secondary group-hover:text-hive-primary group-hover:translate-x-1 transition-all" />
                 </div>
             </div>
@@ -245,9 +296,9 @@ function DashboardEventCard({ image, title, ngo, date, hours }: { image: string,
     );
 }
 
-function UpcomingListItem({ title, ngo, date, status }: { title: string, ngo: string, date: string, status: string }) {
+function UpcomingListItem({ title, ngo, date, status, onClick }: { title: string, ngo: string, date: string, status: string, onClick?: () => void }) {
     return (
-        <div className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+        <div className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer" onClick={onClick}>
             <div className="flex items-center gap-4">
                 <div className="hidden sm:flex w-12 h-12 bg-slate-50 rounded-lg items-center justify-center text-hive-text-secondary">
                     <Calendar className="h-6 w-6" />
@@ -265,7 +316,10 @@ function UpcomingListItem({ title, ngo, date, status }: { title: string, ngo: st
                 <Badge variant={status === 'Confirmed' ? 'primary' : 'gray'} className="hidden md:inline-flex">
                     {status}
                 </Badge>
-                <button className="p-2 text-hive-text-secondary hover:bg-slate-200 rounded-lg transition-colors">
+                <button
+                    className="p-2 text-hive-text-secondary hover:bg-slate-200 rounded-lg transition-colors"
+                    onClick={(e) => { e.stopPropagation(); }}
+                >
                     <MoreVertical className="h-4 w-4" />
                 </button>
             </div>
