@@ -1,19 +1,20 @@
-const API_URL = 'http://localhost:5001/api';
+export const API_URL = 'http://127.0.0.1:5001/api';
 
 export const authService = {
     async register(userData: any) {
+        const isFormData = userData instanceof FormData;
+        const headers: HeadersInit = isFormData ? {} : { 'Content-Type': 'application/json' };
+
         const response = await fetch(`${API_URL}/auth/register`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(userData),
+            headers: headers,
+            body: isFormData ? userData : JSON.stringify(userData),
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || 'Registration failed');
+            throw new Error(data.error || 'Something went wrong');
         }
 
         if (data.token) {

@@ -13,6 +13,23 @@ export const eventService = {
         }
     },
 
+    async getMyEvents() {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/events/my-events`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to fetch my events');
+            return data.data;
+        } catch (error) {
+            console.error('Error fetching my events:', error);
+            throw error;
+        }
+    },
+
     async getEvent(id: string) {
         try {
             const response = await fetch(`${API_URL}/events/${id}`);
