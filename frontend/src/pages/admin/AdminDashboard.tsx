@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ComponentType } from 'react';
 import {
@@ -16,7 +16,8 @@ import {
     UserCheck,
     Ban,
     Settings,
-    LogOut
+    LogOut,
+    FileText
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import { Logo } from '../../components/ui/Logo';
@@ -33,20 +34,15 @@ import {
 } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
 import { cn } from '../../lib/utils';
-import { authService } from '../../lib/auth';
+import { authService, API_URL } from '../../lib/auth';
+import { adminService } from '../../lib/admin';
 
-// Dummy Data for Admin View
+// Dummy Data for Admin View (Stats only for now)
 const STATS = [
     { label: 'Total Users', value: '1,284', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', change: '+12% this month' },
     { label: 'Verified NGOs', value: '42', icon: Building2, color: 'text-hive-primary', bg: 'bg-hive-primary/10', change: '+3 new requests' },
     { label: 'Active Events', value: '156', icon: CalendarDays, color: 'text-teal-600', bg: 'bg-teal-50', change: '+8 today' },
     { label: 'System Health', value: '99.9%', icon: ShieldCheck, color: 'text-purple-600', bg: 'bg-purple-50', change: 'All systems go' },
-];
-
-const NGO_REQUESTS = [
-    { id: 'NGO-001', name: 'Global Green Initiative', contact: 'sarah@globalgreen.org', status: 'Pending', date: '2024-10-15' },
-    { id: 'NGO-002', name: 'Code for Community', contact: 'dev@codecomm.io', status: 'Pending', date: '2024-10-16' },
-    { id: 'NGO-003', name: 'Urban Food Bank', contact: 'logistics@urbanfood.org', status: 'Pending', date: '2024-10-16' },
 ];
 
 const USERS = [
@@ -67,16 +63,60 @@ export default function AdminDashboard() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'ngos' | 'users'>('overview');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-    const [selectedAction, setSelectedAction] = useState<{ type: 'approve' | 'suspend', target: string } | null>(null);
+    const [selectedAction, setSelectedAction] = useState<{ type: 'approve' | 'suspend' | 'reject', target: string, id: string } | null>(null);
+    const [ngoRequests, setNgoRequests] = useState<any[]>([]);
+
+    const [ngoFilter, setNgoFilter] = useState<'pending' | 'verified' | 'rejected'>('pending');
+
+    useEffect(() => {
+        if (activeTab === 'ngos') {
+            fetchNGOs();
+        } else if (activeTab === 'overview') {
+            // optimized to just fetch pending for overview
+            fetchNGOs('pending');
+        }
+    }, [activeTab, ngoFilter]);
+
+    // Initial fetch
+    useEffect(() => {
+        fetchNGOs('pending');
+    }, []);
+
+    const fetchNGOs = async (statusOverride?: string) => {
+        try {
+            const status = statusOverride || ngoFilter;
+            const data = await adminService.getNGOs(status);
+            setNgoRequests(data);
+        } catch (error) {
+            console.error('Failed to fetch NGOs:', error);
+        }
+    };
 
     const handleLogout = () => {
         authService.logout();
         navigate('/login');
     };
 
-    const openConfirm = (type: 'approve' | 'suspend', target: string) => {
-        setSelectedAction({ type, target });
+    const openConfirm = (type: 'approve' | 'suspend' | 'reject', target: string, id: string) => {
+        setSelectedAction({ type, target, id });
         setIsConfirmModalOpen(true);
+    };
+
+    const handleConfirmAction = async () => {
+        if (!selectedAction) return;
+
+        try {
+            if (selectedAction.type === 'approve') {
+                await adminService.updateNGOStatus(selectedAction.id, 'verified');
+            } else if (selectedAction.type === 'reject') {
+                await adminService.updateNGOStatus(selectedAction.id, 'rejected');
+            }
+            // Refresh list
+            fetchNGOs();
+        } catch (error) {
+            console.error('Failed to update NGO status:', error);
+        }
+        setIsConfirmModalOpen(false);
     };
 
     return (
@@ -91,7 +131,7 @@ export default function AdminDashboard() {
                 </div>
                 <nav className="p-4 space-y-1">
                     <SidebarLink icon={Activity} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
-                    <SidebarLink icon={Building2} label="NGO Approvals" active={activeTab === 'ngos'} onClick={() => setActiveTab('ngos')} badge="3" />
+                    <SidebarLink icon={Building2} label="NGO Approvals" active={activeTab === 'ngos'} onClick={() => setActiveTab('ngos')} badge={ngoRequests.length.toString()} />
                     <SidebarLink icon={Users} label="User Roles" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
                     <div className="pt-4 mt-4 border-t border-slate-100 space-y-1">
                         <SidebarLink icon={Settings} label="System Config" active={false} />
@@ -166,20 +206,33 @@ export default function AdminDashboard() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {NGO_REQUESTS.map((req) => (
-                                                    <TableRow key={req.id}>
+                                                {ngoRequests.map((req) => (
+                                                    <TableRow key={req._id}>
                                                         <TableCell>
                                                             <p className="font-bold text-hive-text-primary">{req.name}</p>
-                                                            <p className="text-[10px] text-hive-text-secondary">{req.contact}</p>
+                                                            <p className="text-[10px] text-hive-text-secondary">{req.email}</p>
                                                         </TableCell>
-                                                        <TableCell className="text-xs text-hive-text-secondary font-medium">{req.date}</TableCell>
+                                                        <TableCell className="text-xs text-hive-text-secondary font-medium">
+                                                            {new Date(req.createdAt).toLocaleDateString()}
+                                                        </TableCell>
                                                         <TableCell>
                                                             <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 text-[10px]">Pending</Badge>
                                                         </TableCell>
                                                         <TableCell className="text-right">
                                                             <div className="flex justify-end gap-2">
+                                                                {req.verificationDocument && (
+                                                                    <a
+                                                                        href={`${API_URL.replace('/api', '')}/${req.verificationDocument}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
+                                                                        title="View Verification PDF"
+                                                                    >
+                                                                        <FileText className="h-4 w-4" />
+                                                                    </a>
+                                                                )}
                                                                 <button
-                                                                    onClick={() => openConfirm('approve', req.name)}
+                                                                    onClick={() => openConfirm('approve', req.name, req._id)}
                                                                     className="p-1.5 text-hive-primary hover:bg-hive-primary/10 rounded-md transition-colors"
                                                                 >
                                                                     <CheckCircle2 className="h-4 w-4" />
@@ -191,6 +244,13 @@ export default function AdminDashboard() {
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
+                                                {ngoRequests.length === 0 && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={4} className="text-center text-hive-text-secondary py-8">
+                                                            No pending requests
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
                                             </TableBody>
                                         </Table>
                                     </CardContent>
@@ -233,13 +293,21 @@ export default function AdminDashboard() {
                         <Card className="border-slate-100">
                             <CardContent className="p-0">
                                 <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-                                    <div className="relative flex-1 max-w-md">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-hive-text-secondary" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search organizations..."
-                                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-hive-primary/20 focus:border-hive-primary"
-                                        />
+                                    <div className="flex gap-2">
+                                        {(['pending', 'verified', 'rejected'] as const).map((status) => (
+                                            <button
+                                                key={status}
+                                                onClick={() => setNgoFilter(status)}
+                                                className={cn(
+                                                    "px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors",
+                                                    ngoFilter === status
+                                                        ? "bg-hive-primary text-white"
+                                                        : "bg-slate-50 text-hive-text-secondary hover:bg-slate-100"
+                                                )}
+                                            >
+                                                {status}
+                                            </button>
+                                        ))}
                                     </div>
                                     <div className="flex gap-2">
                                         <Button variant="outline" size="sm" className="gap-2"><Filter className="h-4 w-4" /> Filters</Button>
@@ -255,8 +323,8 @@ export default function AdminDashboard() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {NGO_REQUESTS.map(ngo => (
-                                            <TableRow key={ngo.id}>
+                                        {ngoRequests.map(ngo => (
+                                            <TableRow key={ngo._id}>
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-8 h-8 rounded-lg bg-hive-primary/10 flex items-center justify-center">
@@ -264,18 +332,56 @@ export default function AdminDashboard() {
                                                         </div>
                                                         <div>
                                                             <p className="font-bold text-sm text-hive-text-primary">{ngo.name}</p>
-                                                            <p className="text-xs text-hive-text-secondary">{ngo.contact}</p>
+                                                            <p className="text-xs text-hive-text-secondary">{ngo.email}</p>
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-xs font-medium text-hive-text-secondary">{ngo.date}</TableCell>
+                                                <TableCell className="text-xs font-medium text-hive-text-secondary">
+                                                    {new Date(ngo.createdAt).toLocaleDateString()}
+                                                </TableCell>
                                                 <TableCell>
-                                                    <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[10px]">Action Required</Badge>
+                                                    <Badge className={cn(
+                                                        "text-[10px] capitalize",
+                                                        ngoFilter === 'pending' && "bg-amber-50 text-amber-600 border-amber-100",
+                                                        ngoFilter === 'verified' && "bg-green-50 text-green-600 border-green-100",
+                                                        ngoFilter === 'rejected' && "bg-rose-50 text-rose-600 border-rose-100",
+                                                    )}>
+                                                        {ngoFilter}
+                                                    </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-1">
-                                                        <Button size="sm" className="text-xs px-4" onClick={() => openConfirm('approve', ngo.name)}>Approve</Button>
-                                                        <Button variant="outline" size="sm" className="text-xs text-rose-500 hover:text-rose-600">Reject</Button>
+                                                        {ngo.verificationDocument && (
+                                                            <a
+                                                                href={`${API_URL.replace('/api', '')}/${ngo.verificationDocument}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center justify-center h-8 w-8 text-hive-text-secondary hover:text-hive-primary hover:bg-hive-primary/5 rounded-lg transition-colors mr-2"
+                                                                title="View Document"
+                                                            >
+                                                                <FileText className="h-4 w-4" />
+                                                            </a>
+                                                        )}
+                                                        {ngoFilter !== 'verified' && (
+                                                            <Button
+                                                                size="sm"
+                                                                className="text-xs px-4"
+                                                                onClick={() => openConfirm('approve', ngo.name, ngo._id)}
+                                                            >
+                                                                Approve
+                                                            </Button>
+                                                        )}
+
+                                                        {ngoFilter !== 'rejected' && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="text-xs text-rose-500 border-rose-200 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50"
+                                                                onClick={() => openConfirm('reject', ngo.name, ngo._id)}
+                                                            >
+                                                                Reject
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
@@ -339,7 +445,7 @@ export default function AdminDashboard() {
                                                             variant="ghost"
                                                             size="sm"
                                                             className={cn("text-xs font-bold", user.status === 'Active' ? "text-rose-500" : "text-hive-primary")}
-                                                            onClick={() => openConfirm('suspend', user.name)}
+                                                            onClick={() => openConfirm('suspend', user.name, '')}
                                                         >
                                                             {user.status === 'Active' ? <Ban className="h-4 w-4 mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                                                             {user.status === 'Active' ? 'Suspend' : 'Activate'}
@@ -366,7 +472,7 @@ export default function AdminDashboard() {
                         <Button variant="outline" onClick={() => setIsConfirmModalOpen(false)}>Cancel</Button>
                         <Button
                             className={cn(selectedAction?.type === 'suspend' && "bg-rose-500 hover:bg-rose-600")}
-                            onClick={() => setIsConfirmModalOpen(false)}
+                            onClick={handleConfirmAction}
                         >
                             Confirm Action
                         </Button>
@@ -378,7 +484,9 @@ export default function AdminDashboard() {
                         You are about to {selectedAction?.type} <span className="font-bold text-hive-text-primary">{selectedAction?.target}</span>.
                         {selectedAction?.type === 'approve'
                             ? ' This will grant them permission to create and manage volunteering events on the platform.'
-                            : ' This will immediately affect their access to platform features.'}
+                            : selectedAction?.type === 'reject'
+                                ? ' This will mark their application as rejected. They will not be able to login.'
+                                : ' This will immediately affect their access to platform features.'}
                     </p>
                     <div className="p-3 bg-amber-50 rounded-lg flex gap-3 text-xs text-amber-700 font-medium border border-amber-100">
                         <Activity className="h-4 w-4 shrink-0" />
