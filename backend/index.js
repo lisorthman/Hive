@@ -25,11 +25,13 @@ app.use(cors({
 const auth = require('./routes/auth');
 const events = require('./routes/events');
 const admin = require('./routes/admin');
+const notifications = require('./routes/notifications');
 
 // Mount routers
 app.use('/api/auth', auth);
 app.use('/api/events', events);
 app.use('/api/admin', admin);
+app.use('/api/notifications', notifications);
 
 // Serve uploads
 const path = require('path');
