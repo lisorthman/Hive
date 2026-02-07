@@ -25,7 +25,7 @@ export default function Login() {
             if (data.user.role === 'admin') {
                 navigate('/admin');
             } else if (data.user.role === 'ngo') {
-                navigate('/ngo-create');
+                navigate('/ngo-dashboard');
             } else {
                 navigate('/dashboard');
             }

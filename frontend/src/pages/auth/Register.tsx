@@ -23,6 +23,8 @@ export default function Register() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
+    const [verificationDoc, setVerificationDoc] = useState<File | null>(null);
+
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -33,26 +35,41 @@ export default function Register() {
             return;
         }
 
+        if (role === 'ngo' && !verificationDoc) {
+            setError("Please upload a verification document (PDF)");
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
 
         try {
-            await authService.register({
-                name,
-                email,
-                password,
-                role: role || 'volunteer'
-            });
+            // Use FormData for file upload
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('email', email);
+            formData.append('password', password);
+            formData.append('role', role || 'volunteer');
+
+            if (role === 'ngo' && verificationDoc) {
+                formData.append('verificationDocument', verificationDoc);
+            }
+
+            // We need to bypass the type check for now since authService expects JSON
+            // In a real app, we'd update the authService type signature
+            await authService.register(formData as any);
 
             // Redirect based on role
             if (role === 'ngo') {
-                navigate('/ngo-create');
+                // Show success message or redirect to a waiting page
+                alert("Registration successful! Please wait for admin approval."); // Simple feedback for now
+                navigate('/login');
             } else {
                 navigate('/dashboard');
             }
         } catch (err: any) {
             console.error('Registration error:', err);
-            if (err.message.includes('duplicate key error') || err.message.includes('E11000')) {
+            if (err.message?.includes('duplicate key error') || err.message?.includes('E11000')) {
                 setError('This email is already registered. Please use a different email or try logging in.');
             } else {
                 setError(err.message || 'Failed to create account. Please try again.');
@@ -149,10 +166,48 @@ export default function Register() {
                             onChange={(e) => setConfirmPassword(e.target.value)}
                         />
 
+                        {role === 'ngo' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-hive-text-primary">
+                                    Verification Document
+                                </label>
+                                <div className="flex flex-col gap-2">
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept=".pdf"
+                                            onChange={(e) => setVerificationDoc(e.target.files?.[0] || null)}
+                                            className="hidden"
+                                            id="doc-upload"
+                                        />
+                                        <label
+                                            htmlFor="doc-upload"
+                                            className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-hive-primary/50 hover:bg-hive-primary/5 transition-all"
+                                        >
+                                            <div className="text-center">
+                                                <p className="text-sm text-hive-text-secondary font-medium">
+                                                    {verificationDoc ? verificationDoc.name : "Upload NGO Verification PDF"}
+                                                </p>
+                                                <p className="text-[10px] text-hive-text-secondary mt-1">PDF only, max 5MB</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <p className="text-[10px] text-hive-text-secondary">
+                                        To ensure validity, please upload a government-issued registration document.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="pt-2">
                             <Button type="submit" className="w-full py-3" isLoading={isLoading}>
                                 Create {role === 'volunteer' ? 'Volunteer' : 'NGO'} Account
                             </Button>
+                        </div>
+
+                        <div className="text-center text-sm pt-2">
+                            <span className="text-hive-text-secondary">Already have an account? </span>
+                            <Link to="/login" className="font-bold text-hive-primary hover:text-hive-secondary transition-colors">Login</Link>
                         </div>
                     </form>
                 </motion.div>
