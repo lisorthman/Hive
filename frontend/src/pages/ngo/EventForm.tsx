@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     Calendar,
     MapPin,
@@ -43,6 +43,9 @@ function LocationMarker({ position, setPosition }: { position: [number, number] 
 
 export default function EventForm() {
     const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const isEdit = !!id;
+
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -60,6 +63,31 @@ export default function EventForm() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (isEdit) {
+            const fetchEvent = async () => {
+                try {
+                    const data = await eventService.getEvent(id!);
+                    setFormData({
+                        name: data.title,
+                        description: data.description,
+                        category: data.category,
+                        date: new Date(data.date).toISOString().split('T')[0],
+                        startTime: '', // Backend doesn't store separate startTime yet
+                        endTime: '',
+                        capacity: data.capacity,
+                        address: data.location.name,
+                        prepNotes: data.prepNotes || '',
+                        coords: [data.location.coordinates[1], data.location.coordinates[0]]
+                    });
+                } catch (err: any) {
+                    setError('Failed to load event data');
+                }
+            };
+            fetchEvent();
+        }
+    }, [id, isEdit]);
 
     const handleInputChange = (field: string, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -101,7 +129,11 @@ export default function EventForm() {
                 prepNotes: formData.prepNotes
             };
 
-            await eventService.createEvent(eventPayload);
+            if (isEdit) {
+                await eventService.updateEvent(id!, eventPayload);
+            } else {
+                await eventService.createEvent(eventPayload);
+            }
 
             setIsSubmitting(false);
             setIsModalOpen(false);
@@ -109,10 +141,10 @@ export default function EventForm() {
 
             // Navigate away after success
             setTimeout(() => {
-                navigate('/discovery');
+                navigate(isEdit ? `/event/${id}` : '/ngo-dashboard');
             }, 2000);
         } catch (err: any) {
-            setError(err.message || 'Failed to publish event');
+            setError(err.message || `Failed to ${isEdit ? 'update' : 'publish'} event`);
             setIsSubmitting(false);
         }
     };
@@ -123,21 +155,28 @@ export default function EventForm() {
             <header className="bg-white border-b border-slate-100 sticky top-0 z-40">
                 <div className="max-w-4xl mx-auto px-4 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <button className="p-2 -ml-2 text-hive-text-secondary hover:text-hive-text-primary transition-colors">
+                        <button
+                            onClick={() => navigate('/ngo-dashboard')}
+                            className="p-2 -ml-2 text-hive-text-secondary hover:text-hive-text-primary transition-colors"
+                        >
                             <ChevronLeft className="h-6 w-6" />
                         </button>
                         <div>
-                            <h1 className="text-xl font-bold text-hive-text-primary tracking-tight">Create New Mission</h1>
-                            <p className="text-xs text-hive-text-secondary font-medium uppercase tracking-wider">Step 1: Event Details</p>
+                            <h1 className="text-xl font-bold text-hive-text-primary tracking-tight">
+                                {isEdit ? 'Edit Mission' : 'Create New Mission'}
+                            </h1>
+                            <p className="text-xs text-hive-text-secondary font-medium uppercase tracking-wider">
+                                {isEdit ? `Editing: ${formData.name}` : 'Step 1: Event Details'}
+                            </p>
                         </div>
                     </div>
 
                     <div className="hidden lg:flex items-center gap-3">
-                        <Button variant="outline" size="sm" className="gap-2">
+                        <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/ngo-dashboard')}>
                             <X className="h-4 w-4" /> Cancel
                         </Button>
                         <Button size="sm" className="gap-2" onClick={() => setIsModalOpen(true)}>
-                            <Save className="h-4 w-4" /> Publish Event
+                            <Save className="h-4 w-4" /> {isEdit ? 'Update Changes' : 'Publish Event'}
                         </Button>
                     </div>
                 </div>
@@ -149,7 +188,7 @@ export default function EventForm() {
                     <Card className="bg-hive-primary/10 border-hive-primary/20">
                         <CardContent className="p-4 flex items-center gap-3 text-hive-primary font-bold">
                             <CheckCircle2 className="h-5 w-5" />
-                            Event published successfully! It's now visible to the community.
+                            Event {isEdit ? 'updated' : 'published'} successfully!
                         </CardContent>
                     </Card>
                 )}
@@ -300,11 +339,13 @@ export default function EventForm() {
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                title="Review & Publish Mission"
+                title={isEdit ? 'Review & Update Mission' : 'Review & Publish Mission'}
                 footer={
                     <div className="flex gap-3">
                         <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                        <Button isLoading={isSubmitting} onClick={handlePublish}>Publish Now</Button>
+                        <Button isLoading={isSubmitting} onClick={handlePublish}>
+                            {isEdit ? 'Update Now' : 'Publish Now'}
+                        </Button>
                     </div>
                 }
             >
