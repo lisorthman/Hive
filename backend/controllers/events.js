@@ -20,6 +20,46 @@ exports.getEvents = async (req, res) => {
     }
 };
 
+// @desc    Get events for logged in NGO
+// @route   GET /api/events/my-events
+// @access  Private (NGO)
+exports.getMyEvents = async (req, res) => {
+    try {
+        const events = await Event.find({ organization: req.user.id }).populate({
+            path: 'organization',
+            select: 'name email'
+        });
+
+        res.status(200).json({
+            success: true,
+            count: events.length,
+            data: events
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Get events joined by logged in volunteer
+// @route   GET /api/events/joined
+// @access  Private (Volunteer)
+exports.getJoinedEvents = async (req, res) => {
+    try {
+        const events = await Event.find({ volunteersJoined: req.user.id }).populate({
+            path: 'organization',
+            select: 'name email'
+        });
+
+        res.status(200).json({
+            success: true,
+            count: events.length,
+            data: events
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
 // @desc    Get single event
 // @route   GET /api/events/:id
 // @access  Public
@@ -140,6 +180,63 @@ exports.joinEvent = async (req, res) => {
         // Add user to volunteersJoined
         event.volunteersJoined.push(req.user.id);
         await event.save();
+
+        // Create notification for NGO
+        try {
+            const Notification = require('../models/Notification');
+            await Notification.create({
+                recipient: event.organization,
+                sender: req.user.id,
+                event: event._id,
+                type: 'volunteer_joined',
+                message: `${req.user.name} has joined your mission: ${event.title}`
+            });
+        } catch (error) {
+            console.error('Failed to create notification:', error);
+            // Don't fail the join if notification fails
+        }
+
+        res.status(200).json({ success: true, data: event });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Leave event
+// @route   DELETE /api/events/:id/leave
+// @access  Private (Volunteer)
+exports.leaveEvent = async (req, res) => {
+    try {
+        const event = await Event.findById(req.params.id);
+
+        if (!event) {
+            return res.status(404).json({ success: false, error: 'Event not found' });
+        }
+
+        // Check if user already joined
+        if (!event.volunteersJoined.includes(req.user.id)) {
+            return res.status(400).json({ success: false, error: 'You have not joined this event' });
+        }
+
+        // Remove user from volunteersJoined
+        event.volunteersJoined = event.volunteersJoined.filter(
+            v => v.toString() !== req.user.id
+        );
+        await event.save();
+
+        // Create notification for NGO
+        try {
+            const Notification = require('../models/Notification');
+            await Notification.create({
+                recipient: event.organization,
+                sender: req.user.id,
+                event: event._id,
+                type: 'volunteer_left',
+                message: `${req.user.name} has left your mission: ${event.title}`
+            });
+        } catch (error) {
+            console.error('Failed to create notification:', error);
+        }
 
         res.status(200).json({ success: true, data: event });
     } catch (err) {

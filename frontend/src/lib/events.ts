@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5001/api';
+const API_URL = 'http://127.0.0.1:5001/api';
 
 export const eventService = {
     async getEvents() {
@@ -26,6 +26,23 @@ export const eventService = {
             return data.data;
         } catch (error) {
             console.error('Error fetching my events:', error);
+            throw error;
+        }
+    },
+
+    async getJoinedEvents() {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/events/joined`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to fetch joined events');
+            return data.data;
+        } catch (error) {
+            console.error('Error fetching joined events:', error);
             throw error;
         }
     },
@@ -114,6 +131,24 @@ export const eventService = {
             return data.data;
         } catch (error) {
             console.error('Error joining event:', error);
+            throw error;
+        }
+    },
+
+    async leaveEvent(id: string) {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/events/${id}/leave`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to leave event');
+            return data.data;
+        } catch (error) {
+            console.error('Error leaving event:', error);
             throw error;
         }
     }

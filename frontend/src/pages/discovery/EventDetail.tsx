@@ -14,7 +14,8 @@ import {
     Package,
     Loader2,
     Edit,
-    Trash2
+    Trash2,
+    LogOut
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -25,6 +26,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { eventService } from '../../lib/events';
 import { authService } from '../../lib/auth';
+import { cn } from '../../lib/utils';
 
 
 export default function EventDetail() {
@@ -36,6 +38,7 @@ export default function EventDetail() {
     const [hasJoined, setHasJoined] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
+    const [alertMessage, setAlertMessage] = useState("");
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -66,8 +69,30 @@ export default function EventDetail() {
         try {
             await eventService.joinEvent(id);
             setHasJoined(true);
+            setAlertMessage("You've successfully joined the mission! We've sent the details to your email.");
             setShowAlert(true);
             // Refresh event data to update volunteer count
+            const updatedEvent = await eventService.getEvent(id);
+            setEvent(updatedEvent);
+            setTimeout(() => setShowAlert(false), 5000);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsJoining(false);
+        }
+    };
+
+    const handleLeave = async () => {
+        if (!event || !id) return;
+        if (!window.confirm("Are you sure you want to leave this mission?")) return;
+
+        setIsJoining(true); // Reusing isJoining state for loading
+        try {
+            await eventService.leaveEvent(id);
+            setHasJoined(false);
+            setAlertMessage("You have left the mission. We hope to see you in another one soon!");
+            setShowAlert(true);
+            // Refresh event data
             const updatedEvent = await eventService.getEvent(id);
             setEvent(updatedEvent);
             setTimeout(() => setShowAlert(false), 5000);
@@ -155,7 +180,7 @@ export default function EventDetail() {
                                     exit={{ opacity: 0, y: -20 }}
                                 >
                                     <Alert variant="success" className="mb-6">
-                                        You've successfully joined the mission! We've sent the details to your email.
+                                        {alertMessage}
                                     </Alert>
                                 </motion.div>
                             )}
@@ -305,20 +330,33 @@ export default function EventDetail() {
                                                 </p>
                                             </div>
 
-                                            <Button
-                                                className="w-full py-6 font-bold text-lg rounded-xl shadow-hive group"
-                                                isLoading={isJoining}
-                                                onClick={handleJoin}
-                                                disabled={hasJoined || (event.volunteersJoined?.length >= event.capacity)}
-                                            >
-                                                {hasJoined ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <CheckCircle2 className="h-5 w-5" /> Already Joined
-                                                    </div>
-                                                ) : (event.volunteersJoined?.length >= event.capacity) ? (
-                                                    "Mission Full"
-                                                ) : "Join Mission"}
-                                            </Button>
+                                            <div className="space-y-3">
+                                                <Button
+                                                    className="w-full py-6 font-bold text-lg rounded-xl shadow-hive group"
+                                                    isLoading={isJoining}
+                                                    onClick={handleJoin}
+                                                    disabled={hasJoined || (event.volunteersJoined?.length >= event.capacity)}
+                                                >
+                                                    {hasJoined ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <CheckCircle2 className="h-5 w-5" /> Already Joined
+                                                        </div>
+                                                    ) : (event.volunteersJoined?.length >= event.capacity) ? (
+                                                        "Mission Full"
+                                                    ) : "Join Mission"}
+                                                </Button>
+
+                                                {hasJoined && (
+                                                    <Button
+                                                        variant="outline"
+                                                        className="w-full py-4 text-rose-600 border-rose-100 hover:bg-rose-50 text-xs font-bold uppercase tracking-wider"
+                                                        onClick={handleLeave}
+                                                        disabled={isJoining}
+                                                    >
+                                                        <LogOut className="h-4 w-4 mr-2" /> Leave Mission
+                                                    </Button>
+                                                )}
+                                            </div>
 
                                             <div className="flex items-center gap-2 justify-center text-[10px] text-hive-text-secondary font-bold uppercase tracking-widest bg-slate-50 py-2 rounded-lg">
                                                 <ShieldCheck className="h-3 w-3 text-hive-secondary" /> Insured by Hive Community
@@ -381,12 +419,19 @@ export default function EventDetail() {
                 ) : (
                     <>
                         <Button
-                            className="flex-1 py-4 font-bold rounded-xl shadow-hive"
+                            className={cn(
+                                "flex-1 py-4 font-bold rounded-xl shadow-hive",
+                                hasJoined && "bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100"
+                            )}
                             isLoading={isJoining}
-                            onClick={handleJoin}
-                            disabled={hasJoined}
+                            onClick={hasJoined ? handleLeave : handleJoin}
+                            disabled={!hasJoined && (event.volunteersJoined?.length >= event.capacity)}
                         >
-                            {hasJoined ? "Mission Joined" : "Join Event"}
+                            {hasJoined ? (
+                                <div className="flex items-center gap-2">
+                                    <LogOut className="h-5 w-5" /> Leave Mission
+                                </div>
+                            ) : (event.volunteersJoined?.length >= event.capacity) ? "Mission Full" : "Join Event"}
                         </Button>
                         <Button variant="outline" className="p-4 rounded-xl">
                             <MessageCircle className="h-5 w-5" />

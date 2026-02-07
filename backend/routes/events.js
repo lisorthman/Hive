@@ -6,7 +6,9 @@ const {
     updateEvent,
     deleteEvent,
     joinEvent,
-    getMyEvents
+    getMyEvents,
+    getJoinedEvents,
+    leaveEvent
 } = require('../controllers/events');
 
 const router = express.Router();
@@ -14,6 +16,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/my-events', protect, authorize('ngo', 'admin'), getMyEvents);
+router.get('/joined', protect, authorize('volunteer', 'admin'), getJoinedEvents);
 
 router
     .route('/')
@@ -27,5 +30,6 @@ router
     .delete(protect, authorize('ngo', 'admin'), deleteEvent);
 
 router.route('/:id/join').put(protect, authorize('volunteer', 'admin'), joinEvent);
+router.route('/:id/leave').delete(protect, authorize('volunteer', 'admin'), leaveEvent);
 
 module.exports = router;
