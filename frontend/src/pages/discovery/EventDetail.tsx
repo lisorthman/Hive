@@ -12,7 +12,9 @@ import {
     MessageCircle,
     ShieldCheck,
     Package,
-    Loader2
+    Loader2,
+    Edit,
+    Trash2
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -92,7 +94,12 @@ export default function EventDetail() {
                 </div>
                 <h2 className="text-xl font-bold text-hive-text-primary mb-2">Event not found</h2>
                 <p className="text-hive-text-secondary mb-6">{error || "We couldn't find the mission you're looking for."}</p>
-                <Button onClick={() => navigate('/discovery')}>Back to Discovery</Button>
+                <Button onClick={() => {
+                    const currentUser = authService.getCurrentUser();
+                    navigate(currentUser?.role === 'ngo' ? '/ngo-dashboard' : '/discovery');
+                }}>
+                    Back to {authService.getCurrentUser()?.role === 'ngo' ? 'Dashboard' : 'Discovery'}
+                </Button>
             </div>
         );
     }
@@ -106,17 +113,22 @@ export default function EventDetail() {
     });
     const coordinates: [number, number] = [event.location.coordinates[1], event.location.coordinates[0]];
 
+    const isOwner = authService.getCurrentUser()?.id === event.organization?._id;
+
     return (
         <div className="min-h-screen bg-hive-background pb-24 lg:pb-12">
             {/* Top Navigation */}
             <nav className="bg-white border-b border-slate-100 sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                     <button
-                        onClick={() => navigate('/discovery')}
+                        onClick={() => {
+                            const currentUser = authService.getCurrentUser();
+                            navigate(currentUser?.role === 'ngo' ? '/ngo-dashboard' : '/discovery');
+                        }}
                         className="p-2 -ml-2 text-hive-text-secondary hover:text-hive-text-primary transition-colors flex items-center gap-1 group"
                     >
                         <ChevronLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-                        <span className="text-sm font-bold">Back to Discovery</span>
+                        <span className="text-sm font-bold">Back to {authService.getCurrentUser()?.role === 'ngo' ? 'Dashboard' : 'Discovery'}</span>
                     </button>
 
                     <div className="flex items-center gap-2">
@@ -249,60 +261,96 @@ export default function EventDetail() {
                     {/* Sidebar / CTA (Right) */}
                     <div className="space-y-8">
                         <div className="sticky top-24 space-y-6">
-                            <Card className="shadow-xl border-slate-100 hidden lg:block overflow-hidden relative">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-hive-primary" />
-                                <CardContent className="p-6 space-y-6">
-                                    <div className="space-y-2">
-                                        <h3 className="text-xl font-bold text-hive-text-primary">Join the Community</h3>
-                                        <p className="text-xs text-hive-text-secondary leading-relaxed">
-                                            Your participation helps us reach our goals for this mission.
-                                        </p>
-                                    </div>
-
-                                    <Button
-                                        className="w-full py-6 font-bold text-lg rounded-xl shadow-hive group"
-                                        isLoading={isJoining}
-                                        onClick={handleJoin}
-                                        disabled={hasJoined || (event.volunteersJoined?.length >= event.capacity)}
-                                    >
-                                        {hasJoined ? (
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle2 className="h-5 w-5" /> Already Joined
-                                            </div>
-                                        ) : (event.volunteersJoined?.length >= event.capacity) ? (
-                                            "Mission Full"
-                                        ) : "Join Mission"}
-                                    </Button>
-
-                                    <div className="flex items-center gap-2 justify-center text-[10px] text-hive-text-secondary font-bold uppercase tracking-widest bg-slate-50 py-2 rounded-lg">
-                                        <ShieldCheck className="h-3 w-3 text-hive-secondary" /> Insured by Hive Community
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Organizer Card */}
-                            <Card className="border-slate-100">
-                                <CardContent className="p-6 space-y-4">
-                                    <h4 className="text-sm font-bold text-hive-text-secondary uppercase tracking-wider">Organizer</h4>
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-hive-primary/10 flex items-center justify-center text-hive-primary">
-                                            <Users className="h-6 w-6" />
+                            {isOwner ? (
+                                <Card className="shadow-xl border-slate-100 hidden lg:block overflow-hidden relative">
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-blue-500" />
+                                    <CardContent className="p-6 space-y-6">
+                                        <div className="space-y-2">
+                                            <h3 className="text-xl font-bold text-hive-text-primary">Mission Management</h3>
+                                            <p className="text-xs text-hive-text-secondary leading-relaxed">
+                                                You are the organizer of this event. You can modify its details or cancel it if needed.
+                                            </p>
                                         </div>
-                                        <div>
-                                            <p className="font-bold text-hive-text-primary">{event.ngoName}</p>
-                                            <div className="flex items-center gap-1 text-[10px] font-bold text-hive-primary uppercase">
-                                                <CheckCircle2 className="h-3 w-3" /> NGO Part of Hive
-                                            </div>
+
+                                        <div className="space-y-3">
+                                            <Button
+                                                className="w-full py-6 font-bold text-lg rounded-xl group"
+                                                onClick={() => navigate(`/ngo-edit/${id}`)}
+                                            >
+                                                <Edit className="h-5 w-5 mr-2" /> Edit Mission
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full py-6 font-bold text-lg rounded-xl text-rose-600 border-rose-100 hover:bg-rose-50"
+                                                onClick={() => {
+                                                    if (window.confirm('Are you sure you want to delete this event?')) {
+                                                        eventService.deleteEvent(id!).then(() => navigate('/ngo-dashboard'));
+                                                    }
+                                                }}
+                                            >
+                                                <Trash2 className="h-5 w-5 mr-2" /> Delete Mission
+                                            </Button>
                                         </div>
-                                    </div>
-                                    <p className="text-xs text-hive-text-secondary leading-relaxed">
-                                        Organized by {event.ngoName}. This NGO is committed to social and environmental impact.
-                                    </p>
-                                    <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
-                                        <MessageCircle className="h-4 w-4" /> Message Organizer
-                                    </Button>
-                                </CardContent>
-                            </Card>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <>
+                                    <Card className="shadow-xl border-slate-100 hidden lg:block overflow-hidden relative">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-hive-primary" />
+                                        <CardContent className="p-6 space-y-6">
+                                            <div className="space-y-2">
+                                                <h3 className="text-xl font-bold text-hive-text-primary">Join the Community</h3>
+                                                <p className="text-xs text-hive-text-secondary leading-relaxed">
+                                                    Your participation helps us reach our goals for this mission.
+                                                </p>
+                                            </div>
+
+                                            <Button
+                                                className="w-full py-6 font-bold text-lg rounded-xl shadow-hive group"
+                                                isLoading={isJoining}
+                                                onClick={handleJoin}
+                                                disabled={hasJoined || (event.volunteersJoined?.length >= event.capacity)}
+                                            >
+                                                {hasJoined ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <CheckCircle2 className="h-5 w-5" /> Already Joined
+                                                    </div>
+                                                ) : (event.volunteersJoined?.length >= event.capacity) ? (
+                                                    "Mission Full"
+                                                ) : "Join Mission"}
+                                            </Button>
+
+                                            <div className="flex items-center gap-2 justify-center text-[10px] text-hive-text-secondary font-bold uppercase tracking-widest bg-slate-50 py-2 rounded-lg">
+                                                <ShieldCheck className="h-3 w-3 text-hive-secondary" /> Insured by Hive Community
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Organizer Card */}
+                                    <Card className="border-slate-100">
+                                        <CardContent className="p-6 space-y-4">
+                                            <h4 className="text-sm font-bold text-hive-text-secondary uppercase tracking-wider">Organizer</h4>
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-xl bg-hive-primary/10 flex items-center justify-center text-hive-primary">
+                                                    <Users className="h-6 w-6" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-hive-text-primary">{event.ngoName}</p>
+                                                    <div className="flex items-center gap-1 text-[10px] font-bold text-hive-primary uppercase">
+                                                        <CheckCircle2 className="h-3 w-3" /> NGO Part of Hive
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-hive-text-secondary leading-relaxed">
+                                                Organized by {event.ngoName}. This NGO is committed to social and environmental impact.
+                                            </p>
+                                            <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
+                                                <MessageCircle className="h-4 w-4" /> Message Organizer
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -310,17 +358,41 @@ export default function EventDetail() {
 
             {/* Mobile Sticky CTA */}
             <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-100 p-4 z-50 flex gap-4">
-                <Button
-                    className="flex-1 py-4 font-bold rounded-xl shadow-hive"
-                    isLoading={isJoining}
-                    onClick={handleJoin}
-                    disabled={hasJoined}
-                >
-                    {hasJoined ? "Mission Joined" : "Join Event"}
-                </Button>
-                <Button variant="outline" className="p-4 rounded-xl">
-                    <MessageCircle className="h-5 w-5" />
-                </Button>
+                {isOwner ? (
+                    <>
+                        <Button
+                            className="flex-1 py-4 font-bold rounded-xl shadow-hive"
+                            onClick={() => navigate(`/ngo-edit/${id}`)}
+                        >
+                            <Edit className="h-5 w-5 mr-2" /> Edit Mission
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="p-4 rounded-xl text-rose-600 border-rose-100"
+                            onClick={() => {
+                                if (window.confirm('Are you sure you want to delete this event?')) {
+                                    eventService.deleteEvent(id!).then(() => navigate('/ngo-dashboard'));
+                                }
+                            }}
+                        >
+                            <Trash2 className="h-5 w-5" />
+                        </Button>
+                    </>
+                ) : (
+                    <>
+                        <Button
+                            className="flex-1 py-4 font-bold rounded-xl shadow-hive"
+                            isLoading={isJoining}
+                            onClick={handleJoin}
+                            disabled={hasJoined}
+                        >
+                            {hasJoined ? "Mission Joined" : "Join Event"}
+                        </Button>
+                        <Button variant="outline" className="p-4 rounded-xl">
+                            <MessageCircle className="h-5 w-5" />
+                        </Button>
+                    </>
+                )}
             </div>
         </div>
     );
