@@ -1,9 +1,11 @@
 const express = require('express');
-const { register, login } = require('../controllers/auth');
+const { register, login, getMe } = require('../controllers/auth');
+const { protect } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 
-router.post('/register', register);
+router.post('/register', upload.single('verificationDocument'), register);
 router.post('/login', login);
 
 module.exports = router;
