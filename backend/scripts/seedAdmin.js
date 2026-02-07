@@ -10,21 +10,24 @@ const seedAdmin = async () => {
         console.log('MongoDB Connected for seeding...');
 
         const adminEmail = 'admin@gmail.com';
-        const existingAdmin = await User.findOne({ email: adminEmail });
+        const adminPassword = '123456';
+        let admin = await User.findOne({ email: adminEmail });
 
-        if (existingAdmin) {
-            console.log('Admin already exists.');
-            process.exit();
+        if (admin) {
+            console.log('Admin already exists. Updating password...');
+            admin.password = adminPassword;
+            await admin.save();
+            console.log('Admin password updated successfully.');
+        } else {
+            admin = await User.create({
+                name: 'System Admin',
+                email: adminEmail,
+                password: adminPassword,
+                role: 'admin'
+            });
+            console.log('Admin account created successfully.');
         }
 
-        const admin = await User.create({
-            name: 'System Admin',
-            email: adminEmail,
-            password: 'admin1234', // This will be hashed by the User model's pre-save hook
-            role: 'admin'
-        });
-
-        console.log('Admin account created successfully.');
         process.exit();
     } catch (err) {
         console.error('Error seeding admin:', err.message);

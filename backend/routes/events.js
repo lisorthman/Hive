@@ -5,12 +5,15 @@ const {
     createEvent,
     updateEvent,
     deleteEvent,
-    joinEvent
+    joinEvent,
+    getMyEvents
 } = require('../controllers/events');
 
 const router = express.Router();
 
 const { protect, authorize } = require('../middleware/auth');
+
+router.get('/my-events', protect, authorize('ngo', 'admin'), getMyEvents);
 
 router
     .route('/')
