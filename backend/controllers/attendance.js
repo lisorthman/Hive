@@ -153,7 +153,128 @@ exports.checkInVolunteer = async (req, res) => {
     }
 };
 
-// @desc    Get verified volunteer stats (total hours, check-ins)
+// ─── Shared Gamification Logic ────────────────────────────────────────────────
+// Score formula: joining = 100pts, check-in = 50pts extra, each verified hour = 10pts
+// Level: 1 level per 500pts, starting at Level 1
+function calcScore(joinedCount, checkedInCount, totalHours) {
+    return (joinedCount * 100) + (checkedInCount * 50) + (totalHours * 10);
+}
+
+function calcLevel(score) {
+    return Math.floor(score / 500) + 1;
+}
+
+function calcBadges(joinedCount, checkedInCount, totalHours, categories) {
+    const badges = [];
+
+    // ── Milestone: First Contact ───────────────────────────────────────────
+    if (joinedCount >= 1) badges.push({
+        id: 'first_step', name: 'First Step',
+        description: 'Joined your first volunteering mission',
+        icon: 'Star', color: 'blue'
+    });
+    if (joinedCount >= 3) badges.push({
+        id: 'explorer', name: 'Explorer',
+        description: 'Joined 3 or more missions',
+        icon: 'Compass', color: 'sky'
+    });
+    if (joinedCount >= 5) badges.push({
+        id: 'committed', name: 'Committed',
+        description: 'Joined 5 or more missions — you are dedicated!',
+        icon: 'Flag', color: 'indigo'
+    });
+    if (joinedCount >= 10) badges.push({
+        id: 'champion', name: 'Champion',
+        description: 'Joined 10 missions — a true community champion',
+        icon: 'Trophy', color: 'violet'
+    });
+    if (joinedCount >= 20) badges.push({
+        id: 'legend', name: 'Legend',
+        description: 'Joined 20 missions — you are a Hive Legend!',
+        icon: 'Crown', color: 'amber'
+    });
+
+    // ── Milestone: Check-In Streaks ────────────────────────────────────────
+    if (checkedInCount >= 1) badges.push({
+        id: 'verified_volunteer', name: 'Verified Volunteer',
+        description: 'Completed your first verified check-in',
+        icon: 'CheckCircle', color: 'emerald'
+    });
+    if (checkedInCount >= 5) badges.push({
+        id: 'reliable', name: 'Reliable',
+        description: 'Completed 5 verified check-ins',
+        icon: 'ShieldCheck', color: 'teal'
+    });
+    if (checkedInCount >= 10) badges.push({
+        id: 'dependable', name: 'Dependable',
+        description: 'Completed 10 verified check-ins — always shows up!',
+        icon: 'ShieldCheck', color: 'cyan'
+    });
+
+    // ── Milestone: Hours Tiers ─────────────────────────────────────────────
+    if (totalHours >= 5) badges.push({
+        id: 'bronze_helper', name: 'Bronze Helper',
+        description: 'Logged 5+ verified hours of service',
+        icon: 'Award', color: 'orange'
+    });
+    if (totalHours >= 20) badges.push({
+        id: 'silver_helper', name: 'Silver Helper',
+        description: 'Logged 20+ verified hours of service',
+        icon: 'Award', color: 'slate'
+    });
+    if (totalHours >= 50) badges.push({
+        id: 'gold_helper', name: 'Gold Helper',
+        description: 'Logged 50+ verified hours — outstanding dedication',
+        icon: 'Award', color: 'yellow'
+    });
+    if (totalHours >= 100) badges.push({
+        id: 'platinum_hero', name: 'Platinum Hero',
+        description: 'Logged 100+ verified hours — a true community hero',
+        icon: 'Zap', color: 'purple'
+    });
+    if (totalHours >= 200) badges.push({
+        id: 'diamond_legend', name: 'Diamond Legend',
+        description: 'Logged 200+ verified hours — legendary status achieved',
+        icon: 'Gem', color: 'fuchsia'
+    });
+
+    // ── Category Badges ────────────────────────────────────────────────────
+    if (categories.has('Environmental')) badges.push({
+        id: 'eco_warrior', name: 'Eco Warrior',
+        description: 'Completed a verified Environmental mission',
+        icon: 'Leaf', color: 'green'
+    });
+    if (categories.has('Social Work')) badges.push({
+        id: 'social_champion', name: 'Social Champion',
+        description: 'Completed a verified Social Work mission',
+        icon: 'Users', color: 'pink'
+    });
+    if (categories.has('Education')) badges.push({
+        id: 'scholar', name: 'Scholar',
+        description: 'Completed a verified Education mission',
+        icon: 'BookOpen', color: 'teal'
+    });
+    if (categories.has('Animal Welfare')) badges.push({
+        id: 'animal_guardian', name: 'Animal Guardian',
+        description: 'Completed a verified Animal Welfare mission',
+        icon: 'Heart', color: 'rose'
+    });
+    if (categories.has('Disaster Relief')) badges.push({
+        id: 'first_responder', name: 'First Responder',
+        description: 'Completed a verified Disaster Relief mission',
+        icon: 'AlertTriangle', color: 'red'
+    });
+    if (categories.has('Healthcare')) badges.push({
+        id: 'healer', name: 'Healer',
+        description: 'Completed a verified Healthcare mission',
+        icon: 'Activity', color: 'blue'
+    });
+
+    return badges;
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+// @desc    Get verified volunteer stats (total hours, check-ins, score, badges)
 // @route   GET /api/attendance/my-stats
 // @access  Private (Volunteer)
 exports.getVolunteerStats = async (req, res) => {
@@ -163,96 +284,45 @@ exports.getVolunteerStats = async (req, res) => {
         const checkedIn = allRecords.filter(r => r.status === 'checked-in');
         const totalHours = checkedIn.reduce((sum, r) => sum + r.hoursWorked, 0);
         const joinedCount = allRecords.length;
+        const checkedInCount = checkedIn.length;
 
-        // Score: formula is (joinedCount * 100) + (totalHours * 10)
-        const communityScore = (joinedCount * 100) + (totalHours * 10);
+        const communityScore = calcScore(joinedCount, checkedInCount, totalHours);
+        const level = calcLevel(communityScore);
 
-        // Level = Math.floor(communityScore / 300) + 1
-        const level = Math.floor(communityScore / 300) + 1;
-
-        // Dynamic badges
-        const badges = [];
-
-        // Milestone Badges:
-        if (joinedCount >= 1) {
-            badges.push({
-                id: 'first_step',
-                name: 'First Step',
-                description: 'Joined or completed your first volunteering event',
-                icon: 'Award',
-                color: 'blue'
-            });
-        }
-        if (totalHours >= 5) {
-            badges.push({
-                id: 'bronze_helper',
-                name: 'Bronze Helper',
-                description: 'Logged 5 or more verified hours of service',
-                icon: 'Award',
-                color: 'orange'
-            });
-        }
-        if (totalHours >= 20) {
-            badges.push({
-                id: 'silver_helper',
-                name: 'Silver Helper',
-                description: 'Logged 20 or more verified hours of service',
-                icon: 'Award',
-                color: 'slate'
-            });
-        }
-        if (totalHours >= 50) {
-            badges.push({
-                id: 'gold_helper',
-                name: 'Gold Helper',
-                description: 'Logged 50 or more verified hours of service',
-                icon: 'Award',
-                color: 'yellow'
-            });
-        }
-
-        // Category Badges:
+        // Categories from checked-in events only
         const checkedInCategories = new Set(
             checkedIn.filter(r => r.event).map(r => r.event.category)
         );
 
-        if (checkedInCategories.has('Environmental')) {
-            badges.push({
-                id: 'eco_warrior',
-                name: 'Eco Warrior',
-                description: 'Completed a verified Environmental event',
-                icon: 'TrendingUp',
-                color: 'green'
-            });
-        }
-        if (checkedInCategories.has('Social Work')) {
-            badges.push({
-                id: 'social_champion',
-                name: 'Social Champion',
-                description: 'Completed a verified Social Work event',
-                icon: 'Users',
-                color: 'purple'
-            });
-        }
-        if (checkedInCategories.has('Education')) {
-            badges.push({
-                id: 'scholar',
-                name: 'Scholar',
-                description: 'Completed a verified Education event',
-                icon: 'Award',
-                color: 'teal'
-            });
-        }
+        const badges = calcBadges(joinedCount, checkedInCount, totalHours, checkedInCategories);
+
+        // Next badge hints
+        const nextMilestones = [];
+        if (joinedCount < 3) nextMilestones.push({ badge: 'Explorer', need: `Join ${3 - joinedCount} more event(s)` });
+        else if (joinedCount < 5) nextMilestones.push({ badge: 'Committed', need: `Join ${5 - joinedCount} more event(s)` });
+        else if (joinedCount < 10) nextMilestones.push({ badge: 'Champion', need: `Join ${10 - joinedCount} more event(s)` });
+        else if (joinedCount < 20) nextMilestones.push({ badge: 'Legend', need: `Join ${20 - joinedCount} more event(s)` });
+
+        if (totalHours < 5) nextMilestones.push({ badge: 'Bronze Helper', need: `Log ${5 - totalHours} more hour(s)` });
+        else if (totalHours < 20) nextMilestones.push({ badge: 'Silver Helper', need: `Log ${20 - totalHours} more hour(s)` });
+        else if (totalHours < 50) nextMilestones.push({ badge: 'Gold Helper', need: `Log ${50 - totalHours} more hour(s)` });
+        else if (totalHours < 100) nextMilestones.push({ badge: 'Platinum Hero', need: `Log ${100 - totalHours} more hour(s)` });
+        else if (totalHours < 200) nextMilestones.push({ badge: 'Diamond Legend', need: `Log ${200 - totalHours} more hour(s)` });
+
+        const nextLevelScore = level * 500;
+        const pointsToNextLevel = nextLevelScore - communityScore;
 
         res.status(200).json({
             success: true,
             data: {
                 totalHours,
-                checkedInCount: checkedIn.length,
+                checkedInCount,
                 joinedCount,
                 communityScore,
                 level,
-                badges
+                pointsToNextLevel,
+                badges,
+                nextMilestones
             }
         });
     } catch (err) {
@@ -309,14 +379,8 @@ exports.getLeaderboard = async (req, res) => {
                     as: 'userData'
                 }
             },
-            {
-                $unwind: '$userData'
-            },
-            {
-                $match: {
-                    'userData.role': 'volunteer'
-                }
-            },
+            { $unwind: '$userData' },
+            { $match: { 'userData.role': 'volunteer' } },
             {
                 $project: {
                     _id: 1,
@@ -333,19 +397,12 @@ exports.getLeaderboard = async (req, res) => {
         const rankedUsers = leaderboardData.map(user => {
             const totalHours = user.totalHours || 0;
             const joinedCount = user.joinedCount || 0;
-            const score = (joinedCount * 100) + (totalHours * 10);
-            const level = Math.floor(score / 300) + 1;
+            const checkedInCount = user.checkedInCount || 0;
+            const score = calcScore(joinedCount, checkedInCount, totalHours);
+            const level = calcLevel(score);
 
-            const badges = [];
-            if (joinedCount >= 1) badges.push('first_step');
-            if (totalHours >= 5) badges.push('bronze_helper');
-            if (totalHours >= 20) badges.push('silver_helper');
-            if (totalHours >= 50) badges.push('gold_helper');
-            
-            const categories = new Set(user.checkedInCategories || []);
-            if (categories.has('Environmental')) badges.push('eco_warrior');
-            if (categories.has('Social Work')) badges.push('social_champion');
-            if (categories.has('Education')) badges.push('scholar');
+            const categories = new Set((user.checkedInCategories || []).filter(Boolean));
+            const badges = calcBadges(joinedCount, checkedInCount, totalHours, categories).map(b => b.id);
 
             return {
                 id: user._id,
@@ -353,14 +410,14 @@ exports.getLeaderboard = async (req, res) => {
                 email: user.email,
                 totalHours,
                 joinedCount,
-                checkedInCount: user.checkedInCount,
+                checkedInCount,
                 score,
                 level,
                 badges
             };
         });
 
-        // Add 0-attendance volunteers
+        // Include volunteers with zero activity
         const allVolunteers = await User.find({ role: 'volunteer' });
         const existingIds = new Set(rankedUsers.map(u => u.id.toString()));
 
@@ -387,3 +444,4 @@ exports.getLeaderboard = async (req, res) => {
         res.status(400).json({ success: false, error: err.message });
     }
 };
+
