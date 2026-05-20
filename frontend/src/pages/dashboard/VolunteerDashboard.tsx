@@ -31,7 +31,14 @@ export default function VolunteerDashboard() {
     const [recommendedEvents, setRecommendedEvents] = useState<any[]>([]);
     const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
     const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
-    const [stats, setStats] = useState({ totalHours: 0, checkedInCount: 0, joinedCount: 0 });
+    const [stats, setStats] = useState<any>({
+        totalHours: 0,
+        checkedInCount: 0,
+        joinedCount: 0,
+        communityScore: 0,
+        level: 1,
+        badges: []
+    });
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -118,11 +125,14 @@ export default function VolunteerDashboard() {
                             <h2 className="text-3xl font-extrabold tracking-tight">Welcome back, {user?.name.split(' ')[0] || 'Volunteer'}!</h2>
                             <p className="text-hive-text-secondary mt-1">You've joined <span className="text-hive-primary font-bold">{joinedEvents.length}</span> missions so far. Great job!</p>
                         </div>
-                        <div className="flex gap-3">
-                            <Button variant="outline" size="sm" className="gap-2">
+                        <div className="flex flex-wrap gap-3">
+                            <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open('/resume', '_blank')}>
                                 <Download className="h-4 w-4" /> Impact Resume
                             </Button>
-                            <Button size="sm" className="gap-2" onClick={() => navigate('/discovery')}>
+                            <Button variant="outline" size="sm" className="gap-2 text-hive-primary border-hive-primary/20 hover:bg-hive-primary/5 font-bold" onClick={() => navigate('/leaderboard')}>
+                                <Award className="h-4 w-4" /> Leaderboard
+                            </Button>
+                            <Button size="sm" className="gap-2 font-bold" onClick={() => navigate('/discovery')}>
                                 <Search className="h-4 w-4" /> Find Events
                             </Button>
                         </div>
@@ -148,15 +158,15 @@ export default function VolunteerDashboard() {
                     <StatCard
                         icon={<Award className="h-5 w-5" />}
                         label="Badges Earned"
-                        value="3"
-                        trend="New badge unlocked"
+                        value={(stats.badges || []).length.toString()}
+                        trend={`${stats.badges?.length || 0} unlocked`}
                         color="primary"
                     />
                     <StatCard
                         icon={<TrendingUp className="h-5 w-5" />}
                         label="Community Score"
-                        value={(joinedEvents.length * 100 + 450).toString()}
-                        trend="Level 2"
+                        value={(stats.communityScore || 0).toString()}
+                        trend={`Level ${stats.level || 1}`}
                         color="secondary"
                     />
                 </section>
@@ -235,9 +245,48 @@ export default function VolunteerDashboard() {
                                 <p className="text-sm opacity-90 leading-relaxed">
                                     You can now generate automated impact certificates signed by the community board.
                                 </p>
-                                <Button size="sm" className="bg-white text-hive-primary hover:bg-slate-50 w-full">Learn More</Button>
+                                <Button size="sm" className="bg-white text-hive-primary hover:bg-slate-50 w-full" onClick={() => window.open('/resume', '_blank')}>Generate Certificate</Button>
                             </div>
                         </Card>
+
+                        {/* Earned Badges Section */}
+                        <section className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold">Your Badges</h3>
+                                <span className="text-xs font-bold text-hive-primary bg-hive-primary/10 px-2.5 py-0.5 rounded-full">
+                                    {stats.badges?.length || 0} Earned
+                                </span>
+                            </div>
+                            <Card className="p-4">
+                                {stats.badges && stats.badges.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {stats.badges.map((badge: any) => (
+                                            <div key={badge.id} className="flex flex-col items-center text-center p-3 rounded-xl border border-slate-100/50 hover:bg-slate-50 transition-all group">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-full flex items-center justify-center mb-2 shadow-sm transition-transform group-hover:scale-110",
+                                                    badge.color === 'green' && "bg-green-50 text-green-600",
+                                                    badge.color === 'blue' && "bg-blue-50 text-blue-600",
+                                                    badge.color === 'orange' && "bg-orange-50 text-orange-600",
+                                                    badge.color === 'slate' && "bg-slate-100 text-slate-600",
+                                                    badge.color === 'yellow' && "bg-yellow-50 text-yellow-600",
+                                                    badge.color === 'purple' && "bg-purple-50 text-purple-600",
+                                                    badge.color === 'teal' && "bg-teal-50 text-teal-600"
+                                                )}>
+                                                    <Award className="h-5 w-5" />
+                                                </div>
+                                                <span className="text-xs font-bold text-hive-text-primary leading-tight">{badge.name}</span>
+                                                <span className="text-[9px] text-hive-text-secondary mt-1 leading-tight">{badge.description}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-hive-text-secondary space-y-2">
+                                        <Award className="h-10 w-10 text-slate-200 mx-auto animate-pulse" />
+                                        <p className="text-xs italic">No badges unlocked yet. Join and check-in to missions to earn badges!</p>
+                                    </div>
+                                )}
+                            </Card>
+                        </section>
 
                         <section className="space-y-4">
                             <h3 className="text-lg font-bold">Quick Settings</h3>

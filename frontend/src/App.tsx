@@ -12,6 +12,8 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import AttendanceManagement from './pages/ngo/AttendanceManagement'
 import CheckInConfirm from './pages/discovery/CheckInConfirm'
+import Leaderboard from './pages/discovery/Leaderboard'
+import ImpactResume from './pages/dashboard/ImpactResume'
 
 function App() {
   return (
@@ -26,6 +28,16 @@ function App() {
         <Route path="/dashboard" element={
           <ProtectedRoute allowedRoles={['volunteer', 'admin']}>
             <VolunteerDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/leaderboard" element={
+          <ProtectedRoute allowedRoles={['volunteer', 'ngo', 'admin']}>
+            <Leaderboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/resume" element={
+          <ProtectedRoute allowedRoles={['volunteer', 'admin']}>
+            <ImpactResume />
           </ProtectedRoute>
         } />
         <Route path="/discovery" element={<EventDiscovery />} />

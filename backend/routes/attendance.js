@@ -4,15 +4,17 @@ const {
     updateAttendanceManual,
     generateCheckInCode,
     checkInVolunteer,
-    getVolunteerStats
+    getVolunteerStats,
+    getLeaderboard
 } = require('../controllers/attendance');
 
 const router = express.Router();
 
 const { protect, authorize } = require('../middleware/auth');
 
-// Volunteer routes
+// Volunteer / Public authenticated routes
 router.get('/my-stats', protect, authorize('volunteer', 'admin'), getVolunteerStats);
+router.get('/leaderboard', protect, getLeaderboard);
 router.post('/event/:eventId/check-in', protect, authorize('volunteer', 'admin'), checkInVolunteer);
 
 // NGO / Admin routes

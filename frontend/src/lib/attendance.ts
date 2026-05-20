@@ -91,5 +91,22 @@ export const attendanceService = {
             console.error('Error fetching volunteer stats:', error);
             throw error;
         }
+    },
+
+    async getLeaderboard() {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/attendance/leaderboard`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to fetch leaderboard');
+            return data.data;
+        } catch (error) {
+            console.error('Error fetching leaderboard:', error);
+            throw error;
+        }
     }
 };
