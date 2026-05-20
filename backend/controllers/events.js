@@ -1,4 +1,5 @@
 const Event = require('../models/Event');
+const Attendance = require('../models/Attendance');
 
 // @desc    Get all events
 // @route   GET /api/events
@@ -181,6 +182,17 @@ exports.joinEvent = async (req, res) => {
         event.volunteersJoined.push(req.user.id);
         await event.save();
 
+        // Create attendance record
+        try {
+            await Attendance.create({
+                event: event._id,
+                volunteer: req.user.id,
+                status: 'joined'
+            });
+        } catch (error) {
+            console.error('Failed to create attendance:', error);
+        }
+
         // Create notification for NGO
         try {
             const Notification = require('../models/Notification');
@@ -223,6 +235,13 @@ exports.leaveEvent = async (req, res) => {
             v => v.toString() !== req.user.id
         );
         await event.save();
+
+        // Remove attendance record
+        try {
+            await Attendance.deleteOne({ event: event._id, volunteer: req.user.id });
+        } catch (error) {
+            console.error('Failed to delete attendance:', error);
+        }
 
         // Create notification for NGO
         try {

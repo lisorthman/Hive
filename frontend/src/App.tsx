@@ -10,6 +10,8 @@ import EventForm from './pages/ngo/EventForm'
 import NGODashboard from './pages/ngo/NGODashboard'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import AttendanceManagement from './pages/ngo/AttendanceManagement'
+import CheckInConfirm from './pages/discovery/CheckInConfirm'
 
 function App() {
   return (
@@ -46,6 +48,16 @@ function App() {
         <Route path="/ngo-dashboard" element={
           <ProtectedRoute allowedRoles={['ngo']}>
             <NGODashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/ngo-attendance/:id" element={
+          <ProtectedRoute allowedRoles={['ngo', 'admin']}>
+            <AttendanceManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/check-in/:id" element={
+          <ProtectedRoute allowedRoles={['volunteer', 'admin']}>
+            <CheckInConfirm />
           </ProtectedRoute>
         } />
       </Routes>

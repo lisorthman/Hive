@@ -23,6 +23,7 @@ import { cn } from '../../lib/utils';
 import { motion } from 'framer-motion';
 import { authService } from '../../lib/auth';
 import { eventService } from '../../lib/events';
+import { attendanceService } from '../../lib/attendance';
 
 export default function VolunteerDashboard() {
     const navigate = useNavigate();
@@ -30,15 +31,17 @@ export default function VolunteerDashboard() {
     const [recommendedEvents, setRecommendedEvents] = useState<any[]>([]);
     const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
     const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+    const [stats, setStats] = useState({ totalHours: 0, checkedInCount: 0, joinedCount: 0 });
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const [allEvents, joined] = await Promise.all([
+                const [allEvents, joined, volunteerStats] = await Promise.all([
                     eventService.getEvents(),
-                    eventService.getJoinedEvents()
+                    eventService.getJoinedEvents(),
+                    attendanceService.getVolunteerStats()
                 ]);
 
                 const ids = new Set<string>(joined.map((e: any) => e._id));
@@ -47,6 +50,7 @@ export default function VolunteerDashboard() {
                 // Show top 4 events as recommendations
                 setRecommendedEvents(allEvents.slice(0, 4));
                 setJoinedEvents(joined);
+                setStats(volunteerStats);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
             } finally {
@@ -130,15 +134,15 @@ export default function VolunteerDashboard() {
                     <StatCard
                         icon={<Clock className="h-5 w-5" />}
                         label="Total Hours"
-                        value={(joinedEvents.length * 4).toString()} // Simulated hours calculation
-                        trend="+12h this month"
+                        value={stats.totalHours.toString()}
+                        trend={`${stats.checkedInCount} missions verified`}
                         color="primary"
                     />
                     <StatCard
                         icon={<Calendar className="h-5 w-5" />}
                         label="Events Joined"
-                        value={joinedEvents.length.toString()}
-                        trend="Rank: Top 5%"
+                        value={stats.joinedCount.toString()}
+                        trend="Active status"
                         color="secondary"
                     />
                     <StatCard

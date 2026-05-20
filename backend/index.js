@@ -26,12 +26,14 @@ const auth = require('./routes/auth');
 const events = require('./routes/events');
 const admin = require('./routes/admin');
 const notifications = require('./routes/notifications');
+const attendance = require('./routes/attendance');
 
 // Mount routers
 app.use('/api/auth', auth);
 app.use('/api/events', events);
 app.use('/api/admin', admin);
 app.use('/api/notifications', notifications);
+app.use('/api/attendance', attendance);
 
 // Serve uploads
 const path = require('path');

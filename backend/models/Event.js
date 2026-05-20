@@ -58,6 +58,10 @@ const eventSchema = new mongoose.Schema({
         enum: ['upcoming', 'ongoing', 'completed', 'cancelled'],
         default: 'upcoming'
     },
+    checkInCode: {
+        type: String,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now

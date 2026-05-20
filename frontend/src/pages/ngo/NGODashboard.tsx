@@ -12,7 +12,8 @@ import {
     Eye,
     Loader2,
     CheckCircle2,
-    Clock
+    Clock,
+    UserCheck
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -320,6 +321,13 @@ export default function NGODashboard() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => navigate(`/ngo-attendance/${event._id}`)}
+                                                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                        title="Manage Attendance"
+                                                    >
+                                                        <UserCheck className="h-4 w-4" />
+                                                    </button>
                                                     <button
                                                         onClick={() => navigate(`/event/${event._id}`)}
                                                         className="p-2 text-slate-400 hover:text-hive-primary hover:bg-hive-primary/5 rounded-lg transition-all"
