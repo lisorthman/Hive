@@ -4,6 +4,7 @@ import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import VerifyEmail from './pages/auth/VerifyEmail'
 import VolunteerDashboard from './pages/dashboard/VolunteerDashboard'
+import VolunteerProfile from './pages/dashboard/VolunteerProfile'
 import EventDiscovery from './pages/discovery/EventDiscovery'
 import EventDetail from './pages/discovery/EventDetail'
 import EventForm from './pages/ngo/EventForm'
@@ -30,6 +31,11 @@ function App() {
         <Route path="/dashboard" element={
           <ProtectedRoute allowedRoles={['volunteer', 'admin']}>
             <VolunteerDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute allowedRoles={['volunteer', 'admin']}>
+            <VolunteerProfile />
           </ProtectedRoute>
         } />
         <Route path="/leaderboard" element={
