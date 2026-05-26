@@ -53,6 +53,12 @@ const eventSchema = new mongoose.Schema({
             ref: 'User'
         }
     ],
+    waitlist: [
+        {
+            type: mongoose.Schema.ObjectId,
+            ref: 'User'
+        }
+    ],
     status: {
         type: String,
         enum: ['upcoming', 'ongoing', 'completed', 'cancelled'],

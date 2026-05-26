@@ -46,6 +46,33 @@ const userSchema = new mongoose.Schema({
         type: String,
         maxlength: [500, 'Bio cannot exceed 500 characters'],
         default: ''
+    },
+    interests: {
+        type: [String],
+        default: []
+    },
+    skills: {
+        type: [String],
+        default: []
+    },
+    availability: {
+        type: String,
+        maxlength: [300, 'Availability cannot exceed 300 characters'],
+        default: ''
+    },
+    emailVerified: {
+        type: Boolean,
+        default: function () {
+            return this.role !== 'volunteer';
+        }
+    },
+    emailVerificationToken: String,
+    emailVerificationExpire: Date
+});
+
+userSchema.pre('save', function () {
+    if (this.email) {
+        this.email = this.email.trim().toLowerCase();
     }
 });
 

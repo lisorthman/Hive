@@ -17,7 +17,14 @@ const NotificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['volunteer_joined', 'volunteer_login'],
+        enum: [
+            'volunteer_joined',
+            'volunteer_left',
+            'volunteer_login',
+            'event_updated',
+            'event_cancelled',
+            'promoted_from_waitlist'
+        ],
         default: 'volunteer_joined'
     },
     message: {
