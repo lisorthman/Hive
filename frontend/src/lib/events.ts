@@ -127,6 +127,22 @@ export const eventService = {
         return data.data;
     },
 
+    async getRecommendedEvents(lat?: number, lng?: number) {
+        const token = localStorage.getItem('token');
+        const params = new URLSearchParams();
+        if (lat != null && lng != null) {
+            params.set('lat', String(lat));
+            params.set('lng', String(lng));
+        }
+        const qs = params.toString() ? `?${params.toString()}` : '';
+        const response = await fetch(`${API_URL}/events/recommended${qs}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch recommendations');
+        return data.data;
+    },
+
     async getWaitlistedEvents() {
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_URL}/events/waitlisted`, {

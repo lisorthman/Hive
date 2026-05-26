@@ -35,20 +35,46 @@ export default function EventDiscovery() {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [viewMode, setViewMode] = useState<'split' | 'map' | 'list'>('split');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [recommendedEvents, setRecommendedEvents] = useState<any[]>([]);
 
     useEffect(() => {
+        const getGeo = () =>
+            new Promise<{ lat: number; lng: number } | null>((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve(null);
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (pos) =>
+                        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                    () => resolve(null),
+                    { timeout: 4000 }
+                );
+            });
+
         const fetchData = async () => {
             try {
                 setIsLoading(true);
                 const user = authService.getCurrentUser();
 
-                if (user) {
+                if (user && (user.role === 'volunteer' || user.role === 'admin')) {
                     const [allEvents, joined] = await Promise.all([
                         eventService.getEvents(),
                         eventService.getJoinedEvents()
                     ]);
                     setEvents(allEvents);
                     setJoinedIds(new Set(joined.map((e: any) => e._id as string)));
+
+                    try {
+                        const geo = await getGeo();
+                        const recommended = await eventService.getRecommendedEvents(
+                            geo?.lat,
+                            geo?.lng
+                        );
+                        setRecommendedEvents(recommended);
+                    } catch {
+                        setRecommendedEvents([]);
+                    }
                 } else {
                     const allEvents = await eventService.getEvents();
                     setEvents(allEvents);
@@ -150,6 +176,37 @@ export default function EventDiscovery() {
                     viewMode === 'map' ? 'hidden lg:block' : 'block'
                 )}>
                     <div className="p-6 space-y-6">
+                        {recommendedEvents.length > 0 && (
+                            <section className="space-y-3 pb-2 border-b border-slate-100">
+                                <h2 className="text-lg font-bold text-hive-text-primary">
+                                    Recommended for you
+                                </h2>
+                                <p className="text-xs text-hive-text-secondary">
+                                    Based on your interests, past missions, and distance.
+                                </p>
+                                <div className="space-y-3">
+                                    {recommendedEvents
+                                        .filter((e) => {
+                                            const matchesSearch =
+                                                e.title.toLowerCase().includes(search.toLowerCase()) ||
+                                                e.ngoName.toLowerCase().includes(search.toLowerCase());
+                                            const matchesCategory =
+                                                selectedCategory === 'All' || e.category === selectedCategory;
+                                            return matchesSearch && matchesCategory;
+                                        })
+                                        .slice(0, 5)
+                                        .map((event) => (
+                                            <DiscoveryEventCard
+                                                key={`rec-${event._id}`}
+                                                event={event}
+                                                isJoined={joinedIds.has(event._id)}
+                                                matchReasons={event.matchReasons}
+                                            />
+                                        ))}
+                                </div>
+                            </section>
+                        )}
+
                         <div className="flex items-center justify-between">
                             <h2 className="text-xl font-bold text-hive-text-primary">
                                 {filteredEvents.length} Events Found
@@ -259,7 +316,15 @@ export default function EventDiscovery() {
     );
 }
 
-function DiscoveryEventCard({ event, isJoined }: { event: any, isJoined?: boolean }) {
+function DiscoveryEventCard({
+    event,
+    isJoined,
+    matchReasons
+}: {
+    event: any;
+    isJoined?: boolean;
+    matchReasons?: string[];
+}) {
     const navigate = useNavigate();
     const date = new Date(event.date).toLocaleDateString();
 
@@ -278,10 +343,15 @@ function DiscoveryEventCard({ event, isJoined }: { event: any, isJoined?: boolea
             <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                     <div>
-                        <div className="flex gap-2 mb-2">
+                        <div className="flex gap-2 mb-2 flex-wrap">
                             <Badge variant="primary" className="text-[10px] py-0 px-2">{event.category}</Badge>
                             {isJoined && (
                                 <Badge variant="primary" className="bg-hive-primary text-white border-none text-[10px] py-0 px-2">Joined</Badge>
+                            )}
+                            {matchReasons && matchReasons.length > 0 && (
+                                <Badge variant="secondary" className="text-[10px] py-0 px-2 bg-amber-50 text-amber-700 border-amber-100">
+                                    {matchReasons[0]}
+                                </Badge>
                             )}
                         </div>
                         <h3 className="font-bold text-hive-text-primary group-hover:text-hive-primary transition-colors line-clamp-1">{event.title}</h3>

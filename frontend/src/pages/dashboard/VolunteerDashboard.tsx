@@ -8,10 +8,8 @@ import {
     Search,
     Download,
     Settings,
-    Bell,
     MoreVertical,
     TrendingUp,
-    Users,
     LogOut,
     Loader2
 } from 'lucide-react';
@@ -24,6 +22,8 @@ import { motion } from 'framer-motion';
 import { authService } from '../../lib/auth';
 import { eventService } from '../../lib/events';
 import { attendanceService } from '../../lib/attendance';
+import { NotificationDropdown } from '../../components/notifications/NotificationDropdown';
+import { VolunteerMissionCalendar } from '../../components/calendar/VolunteerMissionCalendar';
 
 export default function VolunteerDashboard() {
     const navigate = useNavigate();
@@ -42,13 +42,26 @@ export default function VolunteerDashboard() {
         badges: []
     });
     const [isLoading, setIsLoading] = useState(true);
-
     useEffect(() => {
+        const getGeo = () =>
+            new Promise<{ lat: number; lng: number } | null>((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve(null);
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (pos) =>
+                        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                    () => resolve(null),
+                    { timeout: 4000 }
+                );
+            });
+
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const [allEvents, joined, waitlisted, volunteerStats, me] = await Promise.all([
-                    eventService.getEvents(),
+
+                const [joined, waitlisted, volunteerStats, me] = await Promise.all([
                     eventService.getJoinedEvents(),
                     eventService.getWaitlistedEvents(),
                     attendanceService.getVolunteerStats(),
@@ -57,13 +70,22 @@ export default function VolunteerDashboard() {
 
                 const ids = new Set<string>(joined.map((e: any) => e._id));
                 setJoinedIds(ids);
-
-                // Show top 4 events as recommendations
-                setRecommendedEvents(allEvents.slice(0, 4));
                 setJoinedEvents(joined);
                 setWaitlistedEvents(waitlisted);
                 setProfile(me);
                 setStats(volunteerStats);
+
+                try {
+                    const geo = await getGeo();
+                    const recommended = await eventService.getRecommendedEvents(
+                        geo?.lat,
+                        geo?.lng
+                    );
+                    setRecommendedEvents(recommended.slice(0, 4));
+                } catch {
+                    const fallback = await eventService.getEvents();
+                    setRecommendedEvents(fallback.slice(0, 4));
+                }
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
             } finally {
@@ -95,10 +117,7 @@ export default function VolunteerDashboard() {
                     <Logo size="md" />
 
                     <div className="flex items-center gap-4">
-                        <button className="p-2 text-hive-text-secondary hover:bg-slate-50 rounded-lg transition-colors relative">
-                            <Bell className="h-5 w-5" />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-hive-secondary rounded-full border-2 border-white" />
-                        </button>
+                        <NotificationDropdown />
                         <div className="flex items-center gap-3 pl-4 border-l border-slate-100 font-bold">
                             <div className="text-right hidden sm:block">
                                 <div className="text-sm">{user?.name || 'Volunteer'}</div>
@@ -180,6 +199,13 @@ export default function VolunteerDashboard() {
                     />
                 </section>
 
+                <section className="mb-10">
+                    <VolunteerMissionCalendar
+                        joinedEvents={joinedEvents}
+                        waitlistedEvents={waitlistedEvents}
+                    />
+                </section>
+
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Main Content Area */}
                     <div className="lg:col-span-2 space-y-10">
@@ -191,18 +217,24 @@ export default function VolunteerDashboard() {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 {recommendedEvents.length > 0 ? (
-                                    recommendedEvents.map(event => (
-                                        <DashboardEventCard
-                                            key={event._id}
-                                            id={event._id}
-                                            image={event.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80"}
-                                            title={event.title}
-                                            ngo={event.ngoName}
-                                            date={new Date(event.date).toLocaleDateString()}
-                                            hours="4h"
-                                            onClick={() => navigate(`/event/${event._id}`)}
-                                            isJoined={joinedIds.has(event._id)}
-                                        />
+                                    recommendedEvents.map((event: any) => (
+                                        <div key={event._id} className="space-y-1">
+                                            <DashboardEventCard
+                                                id={event._id}
+                                                image={event.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80"}
+                                                title={event.title}
+                                                ngo={event.ngoName}
+                                                date={new Date(event.date).toLocaleDateString()}
+                                                hours="4h"
+                                                onClick={() => navigate(`/event/${event._id}`)}
+                                                isJoined={joinedIds.has(event._id)}
+                                            />
+                                            {event.matchReasons?.length > 0 && (
+                                                <p className="text-[10px] text-hive-primary font-medium px-1 line-clamp-1">
+                                                    {event.matchReasons.join(' · ')}
+                                                </p>
+                                            )}
+                                        </div>
                                     ))
                                 ) : (
                                     <div className="col-span-2 py-10 text-center bg-white rounded-xl border border-dashed border-slate-200">
@@ -437,18 +469,3 @@ function UpcomingListItem({ title, ngo, date, status, onClick }: { title: string
     );
 }
 
-function QuickActionItem({ icon, label, count }: { icon: React.ReactNode, label: string, count?: number }) {
-    return (
-        <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all cursor-pointer group">
-            <div className="flex items-center gap-3">
-                <div className="text-hive-text-secondary group-hover:text-hive-primary transition-colors">
-                    {icon}
-                </div>
-                <span className="text-sm font-medium text-hive-text-secondary group-hover:text-hive-text-primary transition-colors">{label}</span>
-            </div>
-            {count && (
-                <span className="text-[10px] font-black bg-hive-secondary text-white px-1.5 py-0.5 rounded-full">{count}</span>
-            )}
-        </div>
-    );
-}
