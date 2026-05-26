@@ -153,6 +153,30 @@ exports.checkInVolunteer = async (req, res) => {
     }
 };
 
+// @desc    Get current volunteer's attendance status for an event
+// @route   GET /api/attendance/event/:eventId/my-status
+// @access  Private
+exports.getMyAttendanceStatus = async (req, res) => {
+    try {
+        const attendance = await Attendance.findOne({
+            event: req.params.eventId,
+            volunteer: req.user.id
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                status: attendance?.status || null,
+                checkedIn: attendance?.status === 'checked-in',
+                canReview: attendance?.status === 'checked-in',
+                hoursWorked: attendance?.hoursWorked || 0
+            }
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
 // ─── Shared Gamification Logic ────────────────────────────────────────────────
 // Score formula: joining = 100pts, check-in = 50pts extra, each verified hour = 10pts
 // Level: 1 level per 500pts, starting at Level 1
