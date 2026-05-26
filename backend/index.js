@@ -27,6 +27,9 @@ const events = require('./routes/events');
 const admin = require('./routes/admin');
 const notifications = require('./routes/notifications');
 const attendance = require('./routes/attendance');
+const reviews = require('./routes/reviews');
+const comments = require('./routes/comments');
+const ngos = require('./routes/ngos');
 
 // Mount routers
 app.use('/api/auth', auth);
@@ -34,6 +37,9 @@ app.use('/api/events', events);
 app.use('/api/admin', admin);
 app.use('/api/notifications', notifications);
 app.use('/api/attendance', attendance);
+app.use('/api/reviews', reviews);
+app.use('/api/comments', comments);
+app.use('/api/ngos', ngos);
 
 // Serve uploads
 const path = require('path');
