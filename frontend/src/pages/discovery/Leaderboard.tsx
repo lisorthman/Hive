@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Award, Trophy, Crown, ArrowLeft, Search, Clock, TrendingUp, Loader2, Sparkles } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { Card, CardContent } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import { Card } from '../../components/ui/Card';
 import { attendanceService } from '../../lib/attendance';
 import { cn } from '../../lib/utils';
 import { motion } from 'framer-motion';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Printer, Award, Calendar, Clock, CheckCircle, ShieldCheck, Mail, CalendarDays, Loader2 } from 'lucide-react';
+import { ArrowLeft, Printer, Award, CheckCircle, ShieldCheck, Mail, CalendarDays, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../lib/auth';
@@ -177,10 +177,7 @@ export default function ImpactResume() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {joinedEvents.length > 0 ? (
-                                        joinedEvents.map((event: any) => {
-                                            // Determine verified status or simple joined status
-                                            const isVerified = stats.checkedInCount > 0; // Simple fallback or mock
-                                            return (
+                                        joinedEvents.map((event: any) => (
                                                 <tr key={event._id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="p-3.5 font-extrabold text-slate-900">{event.title}</td>
                                                     <td className="p-3.5 font-medium text-slate-600">{event.ngoName}</td>
@@ -192,8 +189,7 @@ export default function ImpactResume() {
                                                     </td>
                                                     <td className="p-3.5 text-right font-black text-slate-900">4.0 hrs</td>
                                                 </tr>
-                                            );
-                                        })
+                                        ))
                                     ) : (
                                         <tr>
                                             <td colSpan={5} className="p-8 text-center text-slate-400 italic">No missions completed in this log.</td>

@@ -4,8 +4,6 @@ import {
     ChevronLeft,
     QrCode,
     Save,
-    Clock,
-    UserCheck,
     AlertCircle,
     Loader2,
     Calendar,
@@ -223,7 +221,7 @@ export default function AttendanceManagement() {
                 )}
 
                 {error && (
-                    <Alert variant="destructive" className="mb-6">
+                    <Alert variant="error" className="mb-6">
                         {error}
                     </Alert>
                 )}
@@ -344,7 +342,7 @@ export default function AttendanceManagement() {
                                 )}
 
                                 <Button
-                                    variant={qrCode ? "outline" : "default"}
+                                    variant={qrCode ? 'outline' : 'primary'}
                                     onClick={handleGenerateQR}
                                     isLoading={isGeneratingCode}
                                     className="w-full font-bold"

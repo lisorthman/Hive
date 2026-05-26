@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { Logo } from '../../components/ui/Logo';
 import { eventService } from '../../lib/events';
 import { attendanceService } from '../../lib/attendance';
