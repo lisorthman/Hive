@@ -6,15 +6,11 @@ import {
     Building2,
     CalendarDays,
     Clock,
-    CheckCircle2,
-    XCircle,
     ShieldCheck,
     Activity,
-    ArrowUpRight,
     Filter,
     Search,
     UserCheck,
-    Ban,
     Settings,
     LogOut,
     FileText
@@ -36,28 +32,8 @@ import { Modal } from '../../components/ui/Modal';
 import { cn } from '../../lib/utils';
 import { authService, API_URL } from '../../lib/auth';
 import { adminService } from '../../lib/admin';
-
-// Dummy Data for Admin View (Stats only for now)
-const STATS = [
-    { label: 'Total Users', value: '1,284', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', change: '+12% this month' },
-    { label: 'Verified NGOs', value: '42', icon: Building2, color: 'text-hive-primary', bg: 'bg-hive-primary/10', change: '+3 new requests' },
-    { label: 'Active Events', value: '156', icon: CalendarDays, color: 'text-teal-600', bg: 'bg-teal-50', change: '+8 today' },
-    { label: 'System Health', value: '99.9%', icon: ShieldCheck, color: 'text-purple-600', bg: 'bg-purple-50', change: 'All systems go' },
-];
-
-const USERS = [
-    { name: 'Alex Thompson', email: 'alex.t@example.com', role: 'Volunteer', status: 'Active', joined: 'Oct 2024' },
-    { name: 'Maria Garcia', email: 'm.garcia@greencity.ngo', role: 'NGO Admin', status: 'Active', joined: 'Sep 2024' },
-    { name: 'David Chen', email: 'd.chen@example.com', role: 'Volunteer', status: 'Suspended', joined: 'Aug 2024' },
-    { name: 'Sarah Wilson', email: 'sarah.admin@hive.com', role: 'Admin', status: 'Active', joined: 'Jan 2024' },
-];
-
-const RECENT_ACTIVITY = [
-    { user: 'GreenCity', action: 'Published new event', target: 'Beach Cleanup', time: '2 mins ago' },
-    { user: 'Admin Sarah', action: 'Approved NGO', target: 'Water First', time: '15 mins ago' },
-    { user: 'System', action: 'Auto-archived event', target: 'Past Charity Run', time: '1 hour ago' },
-    { user: 'Alex T.', action: 'Joined event', target: 'Urban Reforest', time: '2 hours ago' },
-];
+import { eventService } from '../../lib/events';
+import { PlatformEventsCalendar } from '../../components/calendar/PlatformEventsCalendar';
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
@@ -65,10 +41,53 @@ export default function AdminDashboard() {
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [auditLoading, setAuditLoading] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-    const [selectedAction, setSelectedAction] = useState<{ type: 'approve' | 'suspend' | 'reject', target: string, id: string } | null>(null);
+    const [selectedAction, setSelectedAction] = useState<{
+        type: 'approve' | 'reject' | 'suspend' | 'activate' | 'remove';
+        target: string;
+        id: string;
+    } | null>(null);
     const [ngoRequests, setNgoRequests] = useState<any[]>([]);
 
     const [ngoFilter, setNgoFilter] = useState<'pending' | 'verified' | 'rejected'>('pending');
+    const [platformStats, setPlatformStats] = useState<any>(null);
+    const [platformEvents, setPlatformEvents] = useState<any[]>([]);
+    const [eventsLoading, setEventsLoading] = useState(false);
+    const [adminUsers, setAdminUsers] = useState<any[]>([]);
+    const [usersLoading, setUsersLoading] = useState(false);
+    const [userSearch, setUserSearch] = useState('');
+
+    const fetchPlatformStats = async () => {
+        try {
+            const data = await adminService.getStats();
+            setPlatformStats(data);
+        } catch (error) {
+            console.error('Failed to fetch platform stats:', error);
+        }
+    };
+
+    const fetchPlatformEvents = async () => {
+        try {
+            setEventsLoading(true);
+            const data = await eventService.getEvents();
+            setPlatformEvents(data);
+        } catch (error) {
+            console.error('Failed to fetch platform events:', error);
+        } finally {
+            setEventsLoading(false);
+        }
+    };
+
+    const fetchAdminUsers = async () => {
+        try {
+            setUsersLoading(true);
+            const data = await adminService.getUsers();
+            setAdminUsers(data);
+        } catch (error) {
+            console.error('Failed to fetch users:', error);
+        } finally {
+            setUsersLoading(false);
+        }
+    };
 
     const fetchAuditLogs = async () => {
         try {
@@ -86,15 +105,21 @@ export default function AdminDashboard() {
         if (activeTab === 'ngos') {
             fetchNGOs();
         } else if (activeTab === 'overview') {
-            fetchNGOs('pending');
+            fetchPlatformStats();
+            fetchPlatformEvents();
+            fetchAuditLogs();
         } else if (activeTab === 'audit') {
             fetchAuditLogs();
+        } else if (activeTab === 'users') {
+            fetchAdminUsers();
         }
     }, [activeTab, ngoFilter]);
 
-    // Initial fetch
     useEffect(() => {
         fetchNGOs('pending');
+        fetchPlatformStats();
+        fetchPlatformEvents();
+        fetchAuditLogs();
     }, []);
 
     const fetchNGOs = async (statusOverride?: string) => {
@@ -112,7 +137,11 @@ export default function AdminDashboard() {
         navigate('/login');
     };
 
-    const openConfirm = (type: 'approve' | 'suspend' | 'reject', target: string, id: string) => {
+    const openConfirm = (
+        type: 'approve' | 'reject' | 'suspend' | 'activate' | 'remove',
+        target: string,
+        id: string
+    ) => {
         setSelectedAction({ type, target, id });
         setIsConfirmModalOpen(true);
     };
@@ -123,15 +152,27 @@ export default function AdminDashboard() {
         try {
             if (selectedAction.type === 'approve') {
                 await adminService.updateNGOStatus(selectedAction.id, 'verified');
+                fetchNGOs();
             } else if (selectedAction.type === 'reject') {
                 await adminService.updateNGOStatus(selectedAction.id, 'rejected');
+                fetchNGOs();
+            } else if (selectedAction.type === 'suspend') {
+                await adminService.updateUserAccountStatus(selectedAction.id, 'suspended');
+                fetchAdminUsers();
+                fetchPlatformStats();
+            } else if (selectedAction.type === 'activate') {
+                await adminService.updateUserAccountStatus(selectedAction.id, 'active');
+                fetchAdminUsers();
+            } else if (selectedAction.type === 'remove') {
+                await adminService.removeUser(selectedAction.id);
+                fetchAdminUsers();
+                fetchPlatformStats();
             }
-            fetchNGOs();
-            if (activeTab === 'audit') {
+            if (activeTab === 'audit' || selectedAction.type !== 'approve') {
                 fetchAuditLogs();
             }
         } catch (error) {
-            console.error('Failed to update NGO status:', error);
+            console.error('Failed to perform admin action:', error);
         }
         setIsConfirmModalOpen(false);
     };
@@ -184,21 +225,45 @@ export default function AdminDashboard() {
                     {activeTab === 'overview' && (
                         <>
                             {/* Stats Grid */}
-                            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                {STATS.map((stat, i) => (
+                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[
+                                    {
+                                        label: 'Volunteers',
+                                        value: platformStats?.volunteers ?? '—',
+                                        icon: Users,
+                                        color: 'text-blue-600',
+                                        bg: 'bg-blue-50'
+                                    },
+                                    {
+                                        label: 'Verified NGOs',
+                                        value: platformStats?.verifiedNgos ?? '—',
+                                        icon: Building2,
+                                        color: 'text-hive-primary',
+                                        bg: 'bg-hive-primary/10',
+                                        sub: `${platformStats?.pendingNgos ?? 0} pending`
+                                    },
+                                    {
+                                        label: 'Active Events',
+                                        value: platformStats?.activeEvents ?? '—',
+                                        icon: CalendarDays,
+                                        color: 'text-teal-600',
+                                        bg: 'bg-teal-50',
+                                        sub: `${platformStats?.totalEvents ?? 0} total`
+                                    }
+                                ].map((stat, i) => (
                                     <Card key={i} className="border-slate-100 group hover:border-hive-primary/20 transition-all">
                                         <CardContent className="p-6 space-y-4">
                                             <div className="flex justify-between items-start">
-                                                <div className={cn("p-2 rounded-lg", stat.bg)}>
-                                                    <stat.icon className={cn("h-5 w-5", stat.color)} />
+                                                <div className={cn('p-2 rounded-lg', stat.bg)}>
+                                                    <stat.icon className={cn('h-5 w-5', stat.color)} />
                                                 </div>
-                                                <span className="text-[10px] font-bold text-green-600 flex items-center gap-1">
-                                                    <ArrowUpRight className="h-3 w-3" /> {stat.change.split(' ')[0]}
-                                                </span>
                                             </div>
                                             <div>
                                                 <p className="text-2xl font-black text-hive-text-primary">{stat.value}</p>
                                                 <p className="text-xs font-bold text-hive-text-secondary uppercase tracking-tight">{stat.label}</p>
+                                                {'sub' in stat && stat.sub && (
+                                                    <p className="text-[10px] text-hive-text-secondary mt-1">{stat.sub}</p>
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -206,72 +271,15 @@ export default function AdminDashboard() {
                             </div>
 
                             <div className="grid lg:grid-cols-3 gap-6">
-                                {/* NGO Approval Quick View */}
-                                <Card className="lg:col-span-2 border-slate-100">
-                                    <CardContent className="p-0">
-                                        <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-                                            <h3 className="font-bold text-hive-text-primary">New NGO Requests</h3>
-                                            <Button variant="ghost" size="sm" className="text-xs" onClick={() => setActiveTab('ngos')}>View All</Button>
-                                        </div>
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-slate-50/50">
-                                                    <TableHead>Organization</TableHead>
-                                                    <TableHead>Submitted</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead className="text-right">Action</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {ngoRequests.map((req) => (
-                                                    <TableRow key={req._id}>
-                                                        <TableCell>
-                                                            <p className="font-bold text-hive-text-primary">{req.name}</p>
-                                                            <p className="text-[10px] text-hive-text-secondary">{req.email}</p>
-                                                        </TableCell>
-                                                        <TableCell className="text-xs text-hive-text-secondary font-medium">
-                                                            {new Date(req.createdAt).toLocaleDateString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 text-[10px]">Pending</Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <div className="flex justify-end gap-2">
-                                                                {req.verificationDocument && (
-                                                                    <a
-                                                                        href={`${API_URL.replace('/api', '')}/${req.verificationDocument}`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
-                                                                        title="View Verification PDF"
-                                                                    >
-                                                                        <FileText className="h-4 w-4" />
-                                                                    </a>
-                                                                )}
-                                                                <button
-                                                                    onClick={() => openConfirm('approve', req.name, req._id)}
-                                                                    className="p-1.5 text-hive-primary hover:bg-hive-primary/10 rounded-md transition-colors"
-                                                                >
-                                                                    <CheckCircle2 className="h-4 w-4" />
-                                                                </button>
-                                                                <button className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-md transition-colors">
-                                                                    <XCircle className="h-4 w-4" />
-                                                                </button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                                {ngoRequests.length === 0 && (
-                                                    <TableRow>
-                                                        <TableCell colSpan={4} className="text-center text-hive-text-secondary py-8">
-                                                            No pending requests
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </CardContent>
-                                </Card>
+                                <div className="lg:col-span-2">
+                                    {eventsLoading ? (
+                                        <Card className="border-slate-100 p-12 text-center text-sm text-hive-text-secondary">
+                                            Loading events calendar…
+                                        </Card>
+                                    ) : (
+                                        <PlatformEventsCalendar events={platformEvents} />
+                                    )}
+                                </div>
 
                                 {/* Recent Activity Log */}
                                 <Card className="border-slate-100">
@@ -280,26 +288,33 @@ export default function AdminDashboard() {
                                             <Clock className="h-4 w-4 text-hive-primary" /> Recent Activity
                                         </h3>
                                         <div className="space-y-6">
-                                            {RECENT_ACTIVITY.map((act, i) => (
-                                                <div key={i} className="flex gap-4 relative">
-                                                    {i !== RECENT_ACTIVITY.length - 1 && (
-                                                        <div className="absolute left-[11px] top-6 w-0.5 h-10 bg-slate-100" />
-                                                    )}
-                                                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0 z-10 border-2 border-white shadow-sm">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-hive-primary" />
+                                            {auditLogs.length === 0 ? (
+                                                <p className="text-xs text-hive-text-secondary">No recent audit activity.</p>
+                                            ) : (
+                                                auditLogs.slice(0, 6).map((log, i) => (
+                                                    <div key={log._id} className="flex gap-4 relative">
+                                                        {i !== Math.min(auditLogs.length, 6) - 1 && (
+                                                            <div className="absolute left-[11px] top-6 w-0.5 h-10 bg-slate-100" />
+                                                        )}
+                                                        <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0 z-10 border-2 border-white shadow-sm">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-hive-primary" />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-xs leading-relaxed">
+                                                                <span className="font-bold text-hive-text-primary">{log.actorName}</span>
+                                                                <span className="text-hive-text-secondary mx-1">
+                                                                    {log.action.replace(/_/g, ' ')}
+                                                                </span>
+                                                            </p>
+                                                            <p className="text-[10px] text-hive-text-secondary font-medium">
+                                                                {new Date(log.createdAt).toLocaleString()}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-xs leading-none">
-                                                            <span className="font-bold text-hive-text-primary">{act.user}</span>
-                                                            <span className="text-hive-text-secondary mx-1">{act.action}</span>
-                                                            <span className="font-bold text-hive-primary">{act.target}</span>
-                                                        </p>
-                                                        <p className="text-[10px] text-hive-text-secondary font-medium">{act.time}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                ))
+                                            )}
                                         </div>
-                                        <Button variant="outline" size="sm" className="w-full text-xs">Download Full Audit Log</Button>
+                                        <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => setActiveTab('audit')}>View full audit log</Button>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -418,6 +433,8 @@ export default function AdminDashboard() {
                                         <input
                                             type="text"
                                             placeholder="Search users..."
+                                            value={userSearch}
+                                            onChange={(e) => setUserSearch(e.target.value)}
                                             className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-hive-primary/20 focus:border-hive-primary"
                                         />
                                     </div>
@@ -433,44 +450,117 @@ export default function AdminDashboard() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {USERS.map((user, i) => (
-                                            <TableRow key={i}>
-                                                <TableCell>
-                                                    <div>
-                                                        <p className="font-bold text-sm text-hive-text-primary">{user.name}</p>
-                                                        <p className="text-xs text-hive-text-secondary">{user.email}</p>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1.5 text-xs font-bold text-hive-text-secondary">
-                                                        {user.role === 'Admin' ? <ShieldCheck className="h-3.5 w-3.5 text-purple-500" /> : <UserCheck className="h-3.5 w-3.5 text-hive-primary" />}
-                                                        {user.role}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        variant={user.status === 'Active' ? 'success' : 'gray'}
-                                                        className={cn("text-[10px]", user.status === 'Suspended' && "bg-rose-50 text-rose-600 border-rose-100")}
-                                                    >
-                                                        {user.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-xs text-hive-text-secondary font-medium">{user.joined}</TableCell>
-                                                <TableCell className="text-right">
-                                                    {user.role !== 'Admin' && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className={cn("text-xs font-bold", user.status === 'Active' ? "text-rose-500" : "text-hive-primary")}
-                                                            onClick={() => openConfirm('suspend', user.name, '')}
-                                                        >
-                                                            {user.status === 'Active' ? <Ban className="h-4 w-4 mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
-                                                            {user.status === 'Active' ? 'Suspend' : 'Activate'}
-                                                        </Button>
-                                                    )}
+                                        {usersLoading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center py-8 text-hive-text-secondary">
+                                                    Loading users…
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        ) : (
+                                            adminUsers
+                                                .filter((u) => {
+                                                    const q = userSearch.toLowerCase();
+                                                    if (!q) return true;
+                                                    return (
+                                                        u.name?.toLowerCase().includes(q) ||
+                                                        u.email?.toLowerCase().includes(q) ||
+                                                        u.role?.toLowerCase().includes(q)
+                                                    );
+                                                })
+                                                .map((u) => (
+                                                    <TableRow key={u._id}>
+                                                        <TableCell>
+                                                            <div>
+                                                                <p className="font-bold text-sm text-hive-text-primary">{u.name}</p>
+                                                                <p className="text-xs text-hive-text-secondary">{u.email}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-1.5 text-xs font-bold text-hive-text-secondary capitalize">
+                                                                {u.role === 'admin' ? (
+                                                                    <ShieldCheck className="h-3.5 w-3.5 text-purple-500" />
+                                                                ) : (
+                                                                    <UserCheck className="h-3.5 w-3.5 text-hive-primary" />
+                                                                )}
+                                                                {u.role}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {u.accountStatus === 'suspended' ? (
+                                                                <Badge className="text-[10px] bg-rose-50 text-rose-600 border-rose-100">
+                                                                    Suspended
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge
+                                                                    variant={
+                                                                        u.role === 'ngo' &&
+                                                                        u.verificationStatus === 'rejected'
+                                                                            ? 'gray'
+                                                                            : 'success'
+                                                                    }
+                                                                    className={cn(
+                                                                        'text-[10px] capitalize',
+                                                                        u.role === 'ngo' &&
+                                                                            u.verificationStatus === 'pending' &&
+                                                                            'bg-amber-50 text-amber-600 border-amber-100',
+                                                                        u.role === 'ngo' &&
+                                                                            u.verificationStatus === 'rejected' &&
+                                                                            'bg-rose-50 text-rose-600 border-rose-100'
+                                                                    )}
+                                                                >
+                                                                    {u.role === 'ngo'
+                                                                        ? u.verificationStatus
+                                                                        : 'active'}
+                                                                </Badge>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-xs text-hive-text-secondary font-medium">
+                                                            {new Date(u.createdAt).toLocaleDateString()}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {u.role === 'admin' ? (
+                                                                <span className="text-xs text-slate-400">—</span>
+                                                            ) : (
+                                                                <div className="flex justify-end gap-1 flex-wrap">
+                                                                    {u.accountStatus === 'suspended' ? (
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="text-xs"
+                                                                            onClick={() =>
+                                                                                openConfirm('activate', u.name, u._id)
+                                                                            }
+                                                                        >
+                                                                            Activate
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="text-xs text-amber-700 border-amber-200"
+                                                                            onClick={() =>
+                                                                                openConfirm('suspend', u.name, u._id)
+                                                                            }
+                                                                        >
+                                                                            Suspend
+                                                                        </Button>
+                                                                    )}
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+                                                                        onClick={() =>
+                                                                            openConfirm('remove', u.name, u._id)
+                                                                        }
+                                                                    >
+                                                                        Remove
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                        )}
                                     </TableBody>
                                 </Table>
                             </CardContent>
@@ -484,7 +574,7 @@ export default function AdminDashboard() {
                                     <div>
                                         <h3 className="font-bold text-hive-text-primary">Audit log</h3>
                                         <p className="text-xs text-hive-text-secondary mt-1">
-                                            NGO status changes, admin comment removals, and event deletions (payload stored as SHA-256 hash).
+                                            NGO status changes, user suspend/remove, comment deletes, and event deletions.
                                         </p>
                                     </div>
                                     <Button variant="outline" size="sm" onClick={fetchAuditLogs} disabled={auditLoading}>
@@ -540,27 +630,52 @@ export default function AdminDashboard() {
             <Modal
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
-                title={selectedAction?.type === 'approve' ? 'Approve NGO Registration' : 'Update User Status'}
+                title={
+                    selectedAction?.type === 'approve'
+                        ? 'Approve NGO Registration'
+                        : selectedAction?.type === 'reject'
+                          ? 'Reject NGO Application'
+                          : selectedAction?.type === 'suspend'
+                            ? 'Suspend Account'
+                            : selectedAction?.type === 'activate'
+                              ? 'Activate Account'
+                              : selectedAction?.type === 'remove'
+                                ? 'Remove Account'
+                                : 'Confirm Action'
+                }
                 footer={
                     <div className="flex gap-3">
                         <Button variant="outline" onClick={() => setIsConfirmModalOpen(false)}>Cancel</Button>
                         <Button
-                            className={cn(selectedAction?.type === 'suspend' && "bg-rose-500 hover:bg-rose-600")}
+                            className={cn(
+                                (selectedAction?.type === 'suspend' ||
+                                    selectedAction?.type === 'reject' ||
+                                    selectedAction?.type === 'remove') &&
+                                    'bg-rose-500 hover:bg-rose-600'
+                            )}
                             onClick={handleConfirmAction}
                         >
-                            Confirm Action
+                            Confirm
                         </Button>
                     </div>
                 }
             >
                 <div className="p-1 space-y-4">
                     <p className="text-sm text-hive-text-secondary leading-relaxed">
-                        You are about to {selectedAction?.type} <span className="font-bold text-hive-text-primary">{selectedAction?.target}</span>.
+                        You are about to{' '}
+                        <span className="font-bold text-hive-text-primary">{selectedAction?.type}</span>{' '}
+                        <span className="font-bold text-hive-text-primary">{selectedAction?.target}</span>.
                         {selectedAction?.type === 'approve'
                             ? ' This will grant them permission to create and manage volunteering events on the platform.'
                             : selectedAction?.type === 'reject'
-                                ? ' This will mark their application as rejected. They will not be able to login.'
-                                : ' This will immediately affect their access to platform features.'}
+                              ? ' They will not be able to log in until approved again.'
+                              : selectedAction?.type === 'suspend'
+                                ? ' They will be blocked from logging in and using the platform until reactivated.'
+                                : selectedAction?.type === 'activate'
+                                  ? ' They will regain access to the platform.'
+                                  : selectedAction?.type === 'remove'
+                                    ? ' This permanently deletes their account. NGO accounts also delete all hosted events.'
+                                    : ' This will immediately affect their access to platform features.'}
                     </p>
                     <div className="p-3 bg-amber-50 rounded-lg flex gap-3 text-xs text-amber-700 font-medium border border-amber-100">
                         <Activity className="h-4 w-4 shrink-0" />

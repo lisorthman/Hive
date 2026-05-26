@@ -1,6 +1,27 @@
 import { API_URL } from './auth';
 
 export const adminService = {
+    async getStats() {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/admin/stats`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        return data.data;
+    },
+
+    async getUsers(role?: string) {
+        const token = localStorage.getItem('token');
+        const query = role ? `?role=${role}` : '';
+        const response = await fetch(`${API_URL}/admin/users${query}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        return data.data;
+    },
+
     async getNGOs(status?: string) {
         const token = localStorage.getItem('token');
         const query = status ? `?status=${status}` : '';
@@ -26,6 +47,32 @@ export const adminService = {
             body: JSON.stringify({ status })
         });
 
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        return data.data;
+    },
+
+    async updateUserAccountStatus(id: string, status: 'active' | 'suspended') {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/admin/users/${id}/account-status`, {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        return data.data;
+    },
+
+    async removeUser(id: string) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/admin/users/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+        });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         return data.data;
