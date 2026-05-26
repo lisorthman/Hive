@@ -10,12 +10,14 @@ import {
     Share2,
     Flag,
     MessageCircle,
+    Star,
     ShieldCheck,
     Package,
     Loader2,
     Edit,
     Trash2,
-    LogOut
+    LogOut,
+    ClipboardList
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -26,7 +28,10 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { eventService } from '../../lib/events';
 import { authService } from '../../lib/auth';
+import { attendanceService } from '../../lib/attendance';
 import { cn } from '../../lib/utils';
+import { EventReviewsSection } from '../../components/event/EventReviewsSection';
+import { EventDiscussionSection } from '../../components/event/EventDiscussionSection';
 
 
 export default function EventDetail() {
@@ -39,6 +44,7 @@ export default function EventDetail() {
     const [isJoining, setIsJoining] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
+    const [canReview, setCanReview] = useState(false);
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -48,10 +54,21 @@ export default function EventDetail() {
                 const data = await eventService.getEvent(id);
                 setEvent(data);
 
-                // Check if user has already joined
                 const currentUser = authService.getCurrentUser();
-                if (currentUser && data.volunteersJoined?.includes(currentUser.id)) {
+                const joined = data.volunteersJoined?.some(
+                    (v: any) => (v._id || v).toString() === currentUser?.id
+                );
+                if (currentUser && joined) {
                     setHasJoined(true);
+                }
+
+                if (currentUser?.id && id) {
+                    try {
+                        const status = await attendanceService.getMyAttendanceStatus(id);
+                        setCanReview(!!status.canReview);
+                    } catch {
+                        setCanReview(false);
+                    }
                 }
             } catch (err: any) {
                 setError(err.message);
@@ -62,6 +79,19 @@ export default function EventDetail() {
 
         fetchEvent();
     }, [id]);
+
+    useEffect(() => {
+        if (isLoading || !event) return;
+        const raw = window.location.hash.replace(/^#/, '');
+        if (raw === 'mission-discussion' || raw === 'mission-reviews') {
+            const el = document.getElementById(raw);
+            if (el) {
+                requestAnimationFrame(() => {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
+        }
+    }, [isLoading, event]);
 
     const handleJoin = async () => {
         if (!event || !id) return;
@@ -138,7 +168,8 @@ export default function EventDetail() {
     });
     const coordinates: [number, number] = [event.location.coordinates[1], event.location.coordinates[0]];
 
-    const isOwner = authService.getCurrentUser()?.id === event.organization?._id;
+    const orgId = (event.organization?._id || event.organization)?.toString();
+    const isOwner = authService.getCurrentUser()?.id === orgId;
 
     return (
         <div className="min-h-screen bg-hive-background pb-24 lg:pb-12">
@@ -195,14 +226,29 @@ export default function EventDetail() {
                             <h1 className="text-3xl sm:text-4xl font-black text-hive-text-primary leading-tight">
                                 {event.title}
                             </h1>
-                            <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-full bg-hive-primary/10 flex items-center justify-center text-hive-primary">
-                                    <CheckCircle2 className="h-4 w-4" />
-                                </div>
-                                <span className="text-lg font-bold text-hive-text-secondary">
-                                    {event.ngoName}
-                                </span>
-                                <ShieldCheck className="h-5 w-5 text-hive-secondary" />
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const orgId = event.organization?._id || event.organization;
+                                        if (orgId) navigate(`/ngo/${orgId}`);
+                                    }}
+                                    className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                                >
+                                    <div className="w-6 h-6 rounded-full bg-hive-primary/10 flex items-center justify-center text-hive-primary">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                    </div>
+                                    <span className="text-lg font-bold text-hive-text-secondary">
+                                        {event.ngoName}
+                                    </span>
+                                    <ShieldCheck className="h-5 w-5 text-hive-secondary" />
+                                </button>
+                                {event.reviewCount > 0 && (
+                                    <span className="flex items-center gap-1 text-sm font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
+                                        <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                                        {event.averageRating?.toFixed(1)} ({event.reviewCount})
+                                    </span>
+                                )}
                             </div>
                         </section>
 
@@ -281,6 +327,25 @@ export default function EventDetail() {
                                 </MapContainer>
                             </div>
                         </section>
+
+                        <div id="mission-discussion">
+                            <EventDiscussionSection
+                                eventId={id!}
+                                canComment={hasJoined || !!isOwner}
+                            />
+                        </div>
+
+                        <div id="mission-reviews">
+                            <EventReviewsSection
+                                eventId={id!}
+                                averageRating={event.averageRating || 0}
+                                reviewCount={event.reviewCount || 0}
+                                canReview={canReview}
+                                onRatingUpdate={(avg, count) =>
+                                    setEvent((prev: any) => ({ ...prev, averageRating: avg, reviewCount: count }))
+                                }
+                            />
+                        </div>
                     </div>
 
                     {/* Sidebar / CTA (Right) */}
@@ -298,6 +363,13 @@ export default function EventDetail() {
                                         </div>
 
                                         <div className="space-y-3">
+                                            <Button
+                                                variant="outline"
+                                                className="w-full py-4 font-bold rounded-xl border-hive-primary/30 text-hive-primary"
+                                                onClick={() => navigate(`/ngo-mission/${id}`)}
+                                            >
+                                                <ClipboardList className="h-5 w-5 mr-2" /> Mission hub
+                                            </Button>
                                             <Button
                                                 className="w-full py-6 font-bold text-lg rounded-xl group"
                                                 onClick={() => navigate(`/ngo-edit/${id}`)}
@@ -382,8 +454,16 @@ export default function EventDetail() {
                                             <p className="text-xs text-hive-text-secondary leading-relaxed">
                                                 Organized by {event.ngoName}. This NGO is committed to social and environmental impact.
                                             </p>
-                                            <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
-                                                <MessageCircle className="h-4 w-4" /> Message Organizer
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="w-full gap-2 text-xs"
+                                                onClick={() => {
+                                                    const orgId = event.organization?._id || event.organization;
+                                                    if (orgId) navigate(`/ngo/${orgId}`);
+                                                }}
+                                            >
+                                                <MessageCircle className="h-4 w-4" /> View NGO Profile
                                             </Button>
                                         </CardContent>
                                     </Card>
@@ -398,6 +478,14 @@ export default function EventDetail() {
             <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-100 p-4 z-50 flex gap-4">
                 {isOwner ? (
                     <>
+                        <Button
+                            variant="outline"
+                            className="p-4 rounded-xl shrink-0"
+                            onClick={() => navigate(`/ngo-mission/${id}`)}
+                            title="Mission hub"
+                        >
+                            <ClipboardList className="h-5 w-5" />
+                        </Button>
                         <Button
                             className="flex-1 py-4 font-bold rounded-xl shadow-hive"
                             onClick={() => navigate(`/ngo-edit/${id}`)}

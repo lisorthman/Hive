@@ -7,6 +7,7 @@ import {
     Filter,
     LayoutGrid,
     Map as MapIcon,
+    Star,
     X,
     Navigation,
     Loader2,
@@ -282,7 +283,15 @@ function DiscoveryEventCard({ event, isJoined }: { event: any, isJoined?: boolea
                             )}
                         </div>
                         <h3 className="font-bold text-hive-text-primary group-hover:text-hive-primary transition-colors line-clamp-1">{event.title}</h3>
-                        <p className="text-xs font-bold text-hive-secondary">{event.ngoName}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-xs font-bold text-hive-secondary">{event.ngoName}</p>
+                            {event.reviewCount > 0 && (
+                                <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-600">
+                                    <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                                    {event.averageRating?.toFixed(1)}
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="text-right shrink-0">
                         <div className="text-[10px] font-bold text-hive-text-secondary uppercase">Slots left</div>

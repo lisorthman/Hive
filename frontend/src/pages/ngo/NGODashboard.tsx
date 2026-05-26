@@ -5,6 +5,7 @@ import {
     Calendar,
     Users,
     TrendingUp,
+    Star,
     LogOut,
     Bell,
     Edit,
@@ -21,6 +22,7 @@ import { Logo } from '../../components/ui/Logo';
 import { authService } from '../../lib/auth';
 import { eventService } from '../../lib/events';
 import { notificationService } from '../../lib/notifications';
+import { reviewService } from '../../lib/reviews';
 import { cn } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
 
@@ -37,6 +39,7 @@ export default function NGODashboard() {
     const [notifications, setNotifications] = useState<any[]>([]);
     const [showNotifications, setShowNotifications] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [reviewSummary, setReviewSummary] = useState<any>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const fetchEvents = async () => {
@@ -48,6 +51,15 @@ export default function NGODashboard() {
             console.error('Failed to fetch events:', error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const fetchReviewSummary = async () => {
+        try {
+            const data = await reviewService.getNGOSummary();
+            setReviewSummary(data);
+        } catch (error) {
+            console.error('Failed to fetch review summary:', error);
         }
     };
 
@@ -64,6 +76,7 @@ export default function NGODashboard() {
     useEffect(() => {
         fetchEvents();
         fetchNotifications();
+        fetchReviewSummary();
 
         // Poll for notifications every 30 seconds
         const interval = setInterval(fetchNotifications, 30000);
@@ -239,6 +252,33 @@ export default function NGODashboard() {
                 </div>
 
                 {/* Stats Overview */}
+                {reviewSummary && reviewSummary.recentReviews?.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 mb-8">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+                                Volunteer Feedback
+                            </h2>
+                            <span className="text-sm font-bold text-amber-600">
+                                Org avg: {reviewSummary.overallAverage > 0 ? reviewSummary.overallAverage.toFixed(1) : '—'} ★
+                            </span>
+                        </div>
+                        <div className="space-y-3 max-h-48 overflow-y-auto">
+                            {reviewSummary.recentReviews.slice(0, 5).map((r: any) => (
+                                <div key={r._id} className="flex items-start justify-between gap-4 text-sm border-b border-slate-50 pb-2 last:border-0">
+                                    <div>
+                                        <span className="font-bold">{r.volunteer?.name}</span>
+                                        <span className="text-slate-400 mx-2">·</span>
+                                        <span className="text-slate-600">{r.event?.title}</span>
+                                        {r.comment && <p className="text-slate-500 text-xs mt-1 line-clamp-2">{r.comment}</p>}
+                                    </div>
+                                    <span className="font-bold text-amber-600 shrink-0">{r.rating} ★</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
                     <DashboardStat
                         icon={<Calendar className="h-6 w-6" />}
@@ -292,6 +332,7 @@ export default function NGODashboard() {
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Date</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Volunteers</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Category</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Rating</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -299,7 +340,13 @@ export default function NGODashboard() {
                                     {events.map((event) => (
                                         <tr key={event._id} className="hover:bg-slate-50/50 transition-colors">
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-900">{event.title}</div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate(`/ngo-mission/${event._id}`)}
+                                                    className="font-bold text-slate-900 text-left hover:text-hive-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-hive-primary rounded"
+                                                >
+                                                    {event.title}
+                                                </button>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="text-sm text-slate-600">
@@ -318,6 +365,16 @@ export default function NGODashboard() {
                                                 <div className="inline-flex px-2 py-1 rounded bg-hive-primary/10 text-hive-primary text-[10px] font-bold uppercase tracking-wider">
                                                     {event.category}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {event.reviewCount > 0 ? (
+                                                    <span className="flex items-center gap-1 text-sm font-bold text-amber-600">
+                                                        <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                                                        {event.averageRating?.toFixed(1)} ({event.reviewCount})
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400">No reviews</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-end gap-2">
