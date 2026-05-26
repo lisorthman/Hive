@@ -30,6 +30,8 @@ export default function VolunteerDashboard() {
     const user = authService.getCurrentUser();
     const [recommendedEvents, setRecommendedEvents] = useState<any[]>([]);
     const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
+    const [waitlistedEvents, setWaitlistedEvents] = useState<any[]>([]);
+    const [profile, setProfile] = useState<any>(null);
     const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
     const [stats, setStats] = useState<any>({
         totalHours: 0,
@@ -45,10 +47,12 @@ export default function VolunteerDashboard() {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const [allEvents, joined, volunteerStats] = await Promise.all([
+                const [allEvents, joined, waitlisted, volunteerStats, me] = await Promise.all([
                     eventService.getEvents(),
                     eventService.getJoinedEvents(),
-                    attendanceService.getVolunteerStats()
+                    eventService.getWaitlistedEvents(),
+                    attendanceService.getVolunteerStats(),
+                    authService.getMe().catch(() => user)
                 ]);
 
                 const ids = new Set<string>(joined.map((e: any) => e._id));
@@ -57,6 +61,8 @@ export default function VolunteerDashboard() {
                 // Show top 4 events as recommendations
                 setRecommendedEvents(allEvents.slice(0, 4));
                 setJoinedEvents(joined);
+                setWaitlistedEvents(waitlisted);
+                setProfile(me);
                 setStats(volunteerStats);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
@@ -126,6 +132,9 @@ export default function VolunteerDashboard() {
                             <p className="text-hive-text-secondary mt-1">You've joined <span className="text-hive-primary font-bold">{joinedEvents.length}</span> missions so far. Great job!</p>
                         </div>
                         <div className="flex flex-wrap gap-3">
+                            <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/profile')}>
+                                <Settings className="h-4 w-4" /> Edit Profile
+                            </Button>
                             <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open('/resume', '_blank')}>
                                 <Download className="h-4 w-4" /> Impact Resume
                             </Button>
@@ -231,6 +240,26 @@ export default function VolunteerDashboard() {
                                 </div>
                             </Card>
                         </section>
+
+                        {waitlistedEvents.length > 0 && (
+                            <section className="space-y-6">
+                                <h3 className="text-xl font-bold">Waitlisted Missions</h3>
+                                <Card padding="none">
+                                    <div className="divide-y divide-slate-50">
+                                        {waitlistedEvents.map((event) => (
+                                            <UpcomingListItem
+                                                key={event._id}
+                                                title={event.title}
+                                                ngo={event.ngoName}
+                                                date={new Date(event.date).toLocaleDateString()}
+                                                status="Waitlist"
+                                                onClick={() => navigate(`/event/${event._id}`)}
+                                            />
+                                        ))}
+                                    </div>
+                                </Card>
+                            </section>
+                        )}
                     </div>
 
                     {/* Sidebar Area */}
@@ -288,12 +317,40 @@ export default function VolunteerDashboard() {
                             </Card>
                         </section>
 
+                        {profile?.interests?.length > 0 && (
+                            <Card>
+                                <CardContent className="p-4 space-y-2">
+                                    <h3 className="text-sm font-bold">Your interests</h3>
+                                    <div className="flex flex-wrap gap-1">
+                                        {profile.interests.map((i: string) => (
+                                            <Badge key={i} variant="primary" className="text-[10px]">
+                                                {i}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="text-xs font-bold text-hive-primary hover:underline"
+                                        onClick={() => navigate('/profile')}
+                                    >
+                                        Update profile
+                                    </button>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         <section className="space-y-4">
                             <h3 className="text-lg font-bold">Quick Settings</h3>
                             <div className="space-y-2">
-                                <QuickActionItem icon={<Users className="h-4 w-4" />} label="Network Activity" count={5} />
-                                <QuickActionItem icon={<Bell className="h-4 w-4" />} label="Notification Preferences" />
-                                <QuickActionItem icon={<Settings className="h-4 w-4" />} label="Account Security" />
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 text-left"
+                                    onClick={() => navigate('/profile')}
+                                >
+                                    <span className="flex items-center gap-2 text-sm font-bold">
+                                        <Settings className="h-4 w-4" /> Edit profile & skills
+                                    </span>
+                                </button>
                             </div>
                         </section>
                     </div>
