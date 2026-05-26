@@ -30,6 +30,7 @@ const attendance = require('./routes/attendance');
 const reviews = require('./routes/reviews');
 const comments = require('./routes/comments');
 const ngos = require('./routes/ngos');
+const reports = require('./routes/reports');
 
 // Mount routers
 app.use('/api/auth', auth);
@@ -40,6 +41,7 @@ app.use('/api/attendance', attendance);
 app.use('/api/reviews', reviews);
 app.use('/api/comments', comments);
 app.use('/api/ngos', ngos);
+app.use('/api/reports', reports);
 
 // Serve uploads
 const path = require('path');
