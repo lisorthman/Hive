@@ -1,5 +1,11 @@
 const Event = require('../models/Event');
 const Attendance = require('../models/Attendance');
+const Notification = require('../models/Notification');
+const { promoteFromWaitlist } = require('../utils/waitlist');
+const notifyEventVolunteers = require('../utils/notifyEventVolunteers');
+
+const userOnList = (list, userId) =>
+    list.some((id) => id.toString() === userId.toString());
 
 // @desc    Get all events
 // @route   GET /api/events
@@ -61,6 +67,63 @@ exports.getJoinedEvents = async (req, res) => {
     }
 };
 
+// @desc    Get events on waitlist for logged in volunteer
+// @route   GET /api/events/waitlisted
+// @access  Private (Volunteer)
+exports.getWaitlistedEvents = async (req, res) => {
+    try {
+        const events = await Event.find({ waitlist: req.user.id }).populate({
+            path: 'organization',
+            select: 'name email'
+        });
+
+        res.status(200).json({
+            success: true,
+            count: events.length,
+            data: events
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Current user's participation on an event
+// @route   GET /api/events/:id/participation
+// @access  Private
+exports.getEventParticipation = async (req, res) => {
+    try {
+        const event = await Event.findById(req.params.id);
+        if (!event) {
+            return res.status(404).json({ success: false, error: 'Event not found' });
+        }
+
+        const userId = req.user.id.toString();
+        let membership = 'none';
+        let waitlistPosition = null;
+
+        if (userOnList(event.volunteersJoined, userId)) {
+            membership = 'joined';
+        } else if (userOnList(event.waitlist, userId)) {
+            membership = 'waitlisted';
+            waitlistPosition =
+                event.waitlist.findIndex((id) => id.toString() === userId) + 1;
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                membership,
+                waitlistPosition,
+                spotsLeft: Math.max(0, event.capacity - event.volunteersJoined.length),
+                waitlistCount: event.waitlist.length,
+                isFull: event.volunteersJoined.length >= event.capacity
+            }
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
 // @desc    Get single event
 // @route   GET /api/events/:id
 // @access  Public
@@ -86,11 +149,9 @@ exports.getEvent = async (req, res) => {
 // @access  Private (NGO)
 exports.createEvent = async (req, res) => {
     try {
-        // Add user to req.body
         req.body.organization = req.user.id;
         req.body.ngoName = req.user.name;
 
-        // Check for role
         if (req.user.role !== 'ngo' && req.user.role !== 'admin') {
             return res.status(403).json({ success: false, error: 'Only NGOs can create events' });
         }
@@ -117,15 +178,40 @@ exports.updateEvent = async (req, res) => {
             return res.status(404).json({ success: false, error: 'Event not found' });
         }
 
-        // Make sure user is event owner
         if (event.organization.toString() !== req.user.id && req.user.role !== 'admin') {
             return res.status(401).json({ success: false, error: 'Not authorized to update this event' });
         }
+
+        const previousCapacity = event.capacity;
+        const volunteerIds = [...event.volunteersJoined];
 
         event = await Event.findByIdAndUpdate(req.params.id, req.body, {
             new: true,
             runValidators: true
         });
+
+        if (event.capacity > previousCapacity) {
+            while (
+                event.volunteersJoined.length < event.capacity &&
+                event.waitlist.length > 0
+            ) {
+                await promoteFromWaitlist(event);
+                event = await Event.findById(event._id);
+            }
+        }
+
+        const changedFields = Object.keys(req.body).filter(
+            (k) => !['organization', 'ngoName'].includes(k)
+        );
+        if (volunteerIds.length > 0 && changedFields.length > 0) {
+            await notifyEventVolunteers({
+                event,
+                senderId: req.user.id,
+                type: 'event_updated',
+                message: `Mission "${event.title}" was updated by the organizer. Please review the latest details.`,
+                volunteerIds
+            });
+        }
 
         res.status(200).json({ success: true, data: event });
     } catch (err) {
@@ -144,9 +230,24 @@ exports.deleteEvent = async (req, res) => {
             return res.status(404).json({ success: false, error: 'Event not found' });
         }
 
-        // Make sure user is event owner
         if (event.organization.toString() !== req.user.id && req.user.role !== 'admin') {
             return res.status(401).json({ success: false, error: 'Not authorized to delete this event' });
+        }
+
+        const volunteerIds = [
+            ...event.volunteersJoined.map((id) => id.toString()),
+            ...event.waitlist.map((id) => id.toString())
+        ];
+        const uniqueVolunteerIds = [...new Set(volunteerIds)];
+
+        if (uniqueVolunteerIds.length > 0) {
+            await notifyEventVolunteers({
+                event,
+                senderId: req.user.id,
+                type: 'event_cancelled',
+                message: `Mission "${event.title}" has been cancelled by the organizer.`,
+                volunteerIds: uniqueVolunteerIds
+            });
         }
 
         await event.deleteOne();
@@ -157,7 +258,7 @@ exports.deleteEvent = async (req, res) => {
     }
 };
 
-// @desc    Join event
+// @desc    Join event or join waitlist
 // @route   PUT /api/events/:id/join
 // @access  Private (Volunteer)
 exports.joinEvent = async (req, res) => {
@@ -168,21 +269,41 @@ exports.joinEvent = async (req, res) => {
             return res.status(404).json({ success: false, error: 'Event not found' });
         }
 
-        // Check if event is full
-        if (event.volunteersJoined.length >= event.capacity) {
-            return res.status(400).json({ success: false, error: 'Event is already full' });
+        if (event.status === 'cancelled') {
+            return res.status(400).json({ success: false, error: 'This mission has been cancelled' });
         }
 
-        // Check if user already joined
-        if (event.volunteersJoined.includes(req.user.id)) {
+        const userId = req.user.id.toString();
+
+        if (userOnList(event.volunteersJoined, userId)) {
             return res.status(400).json({ success: false, error: 'You have already joined this event' });
         }
 
-        // Add user to volunteersJoined
+        if (userOnList(event.waitlist, userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'You are already on the waitlist for this event'
+            });
+        }
+
+        if (event.volunteersJoined.length >= event.capacity) {
+            event.waitlist.push(req.user.id);
+            await event.save();
+
+            const position = event.waitlist.length;
+
+            return res.status(200).json({
+                success: true,
+                membership: 'waitlisted',
+                waitlistPosition: position,
+                data: event,
+                message: `Mission is full. You are #${position} on the waitlist.`
+            });
+        }
+
         event.volunteersJoined.push(req.user.id);
         await event.save();
 
-        // Create attendance record
         try {
             await Attendance.create({
                 event: event._id,
@@ -190,12 +311,12 @@ exports.joinEvent = async (req, res) => {
                 status: 'joined'
             });
         } catch (error) {
-            console.error('Failed to create attendance:', error);
+            if (error.code !== 11000) {
+                console.error('Failed to create attendance:', error);
+            }
         }
 
-        // Create notification for NGO
         try {
-            const Notification = require('../models/Notification');
             await Notification.create({
                 recipient: event.organization,
                 sender: req.user.id,
@@ -205,47 +326,63 @@ exports.joinEvent = async (req, res) => {
             });
         } catch (error) {
             console.error('Failed to create notification:', error);
-            // Don't fail the join if notification fails
         }
 
-        res.status(200).json({ success: true, data: event });
+        res.status(200).json({
+            success: true,
+            membership: 'joined',
+            data: event
+        });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });
     }
 };
 
-// @desc    Leave event
+// @desc    Leave event or leave waitlist
 // @route   DELETE /api/events/:id/leave
 // @access  Private (Volunteer)
 exports.leaveEvent = async (req, res) => {
     try {
-        const event = await Event.findById(req.params.id);
+        let event = await Event.findById(req.params.id);
 
         if (!event) {
             return res.status(404).json({ success: false, error: 'Event not found' });
         }
 
-        // Check if user already joined
-        if (!event.volunteersJoined.includes(req.user.id)) {
-            return res.status(400).json({ success: false, error: 'You have not joined this event' });
+        const userId = req.user.id.toString();
+        const onWaitlist = userOnList(event.waitlist, userId);
+        const onJoined = userOnList(event.volunteersJoined, userId);
+
+        if (!onWaitlist && !onJoined) {
+            return res.status(400).json({
+                success: false,
+                error: 'You are not registered or waitlisted for this event'
+            });
         }
 
-        // Remove user from volunteersJoined
+        if (onWaitlist) {
+            event.waitlist = event.waitlist.filter((id) => id.toString() !== userId);
+            await event.save();
+            return res.status(200).json({
+                success: true,
+                membership: 'none',
+                data: event,
+                message: 'Removed from waitlist'
+            });
+        }
+
         event.volunteersJoined = event.volunteersJoined.filter(
-            v => v.toString() !== req.user.id
+            (v) => v.toString() !== userId
         );
         await event.save();
 
-        // Remove attendance record
         try {
             await Attendance.deleteOne({ event: event._id, volunteer: req.user.id });
         } catch (error) {
             console.error('Failed to delete attendance:', error);
         }
 
-        // Create notification for NGO
         try {
-            const Notification = require('../models/Notification');
             await Notification.create({
                 recipient: event.organization,
                 sender: req.user.id,
@@ -257,7 +394,14 @@ exports.leaveEvent = async (req, res) => {
             console.error('Failed to create notification:', error);
         }
 
-        res.status(200).json({ success: true, data: event });
+        event = await Event.findById(event._id);
+        await promoteFromWaitlist(event);
+
+        res.status(200).json({
+            success: true,
+            membership: 'none',
+            data: await Event.findById(event._id)
+        });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });
     }

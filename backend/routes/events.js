@@ -8,6 +8,8 @@ const {
     joinEvent,
     getMyEvents,
     getJoinedEvents,
+    getWaitlistedEvents,
+    getEventParticipation,
     leaveEvent
 } = require('../controllers/events');
 
@@ -17,11 +19,14 @@ const { protect, authorize } = require('../middleware/auth');
 
 router.get('/my-events', protect, authorize('ngo', 'admin'), getMyEvents);
 router.get('/joined', protect, authorize('volunteer', 'admin'), getJoinedEvents);
+router.get('/waitlisted', protect, authorize('volunteer', 'admin'), getWaitlistedEvents);
 
 router
     .route('/')
     .get(getEvents)
     .post(protect, authorize('ngo', 'admin'), createEvent);
+
+router.get('/:id/participation', protect, getEventParticipation);
 
 router
     .route('/:id')
