@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const AuditLog = require('../models/AuditLog');
+const { recordAudit } = require('../utils/auditLog');
 
 // @desc    Get all NGOs (filtered by status query param optional)
 // @route   GET /api/admin/ngos
@@ -47,8 +49,22 @@ exports.updateNGOStatus = async (req, res) => {
             });
         }
 
+        const previousStatus = user.verificationStatus;
         user.verificationStatus = status;
         await user.save();
+
+        await recordAudit({
+            actor: req.user,
+            action: 'ngo_status_changed',
+            targetType: 'user',
+            targetId: user._id,
+            payload: {
+                ngoId: user._id.toString(),
+                ngoName: user.name,
+                previousStatus,
+                newStatus: status
+            }
+        });
 
         res.status(200).json({
             success: true,
@@ -59,6 +75,30 @@ exports.updateNGOStatus = async (req, res) => {
         res.status(500).json({
             success: false,
             error: err.message || 'Server Error'
+        });
+    }
+};
+
+// @desc    Get admin audit log entries
+// @route   GET /api/admin/audit-logs
+// @access  Private/Admin
+exports.getAuditLogs = async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+        const logs = await AuditLog.find()
+            .sort('-createdAt')
+            .limit(limit)
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            count: logs.length,
+            data: logs
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: 'Server Error'
         });
     }
 };

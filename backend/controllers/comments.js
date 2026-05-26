@@ -1,6 +1,7 @@
 const Event = require('../models/Event');
 const EventComment = require('../models/EventComment');
 const Attendance = require('../models/Attendance');
+const { recordAudit } = require('../utils/auditLog');
 
 const canParticipateInDiscussion = async (event, user) => {
     if (!user) return false;
@@ -138,6 +139,19 @@ exports.deleteEventComment = async (req, res) => {
 
         const ids = await collectDescendantIds(comment._id);
         await EventComment.deleteMany({ _id: { $in: ids } });
+
+        await recordAudit({
+            actor: req.user,
+            action: 'comment_deleted',
+            targetType: 'comment',
+            targetId: comment._id,
+            payload: {
+                commentId: comment._id.toString(),
+                eventId: comment.event.toString(),
+                deletedCount: ids.length
+            }
+        });
+
         res.status(200).json({ success: true, data: {} });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });

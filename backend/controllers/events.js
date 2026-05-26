@@ -1,4 +1,5 @@
 const Event = require('../models/Event');
+const { recordAudit } = require('../utils/auditLog');
 const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
 const { promoteFromWaitlist } = require('../utils/waitlist');
@@ -249,6 +250,19 @@ exports.deleteEvent = async (req, res) => {
                 volunteerIds: uniqueVolunteerIds
             });
         }
+
+        await recordAudit({
+            actor: req.user,
+            action: 'event_deleted',
+            targetType: 'event',
+            targetId: event._id,
+            payload: {
+                eventId: event._id.toString(),
+                eventTitle: event.title,
+                organizationId: event.organization.toString(),
+                deletedByRole: req.user.role
+            }
+        });
 
         await event.deleteOne();
 
