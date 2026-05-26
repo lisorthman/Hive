@@ -14,6 +14,8 @@ import AttendanceManagement from './pages/ngo/AttendanceManagement'
 import CheckInConfirm from './pages/discovery/CheckInConfirm'
 import Leaderboard from './pages/discovery/Leaderboard'
 import ImpactResume from './pages/dashboard/ImpactResume'
+import NGOProfile from './pages/ngo/NGOProfile'
+import NGOMissionHub from './pages/ngo/NGOMissionHub'
 
 function App() {
   return (
@@ -41,6 +43,7 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/discovery" element={<EventDiscovery />} />
+        <Route path="/ngo/:id" element={<NGOProfile />} />
         <Route path="/event/:id" element={<EventDetail />} />
         <Route path="/ngo-create" element={
           <ProtectedRoute allowedRoles={['ngo', 'admin']}>
@@ -60,6 +63,11 @@ function App() {
         <Route path="/ngo-dashboard" element={
           <ProtectedRoute allowedRoles={['ngo']}>
             <NGODashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/ngo-mission/:id" element={
+          <ProtectedRoute allowedRoles={['ngo', 'admin']}>
+            <NGOMissionHub />
           </ProtectedRoute>
         } />
         <Route path="/ngo-attendance/:id" element={
