@@ -41,6 +41,11 @@ const userSchema = new mongoose.Schema({
     verificationDocument: {
         type: String, // Path to the uploaded PDF
         required: [function () { return this.role === 'ngo'; }, 'NGOs must upload a verification document']
+    },
+    bio: {
+        type: String,
+        maxlength: [500, 'Bio cannot exceed 500 characters'],
+        default: ''
     }
 });
 
