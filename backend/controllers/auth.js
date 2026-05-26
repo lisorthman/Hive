@@ -122,6 +122,13 @@ exports.login = async (req, res) => {
             });
         }
 
+        if (user.accountStatus === 'suspended') {
+            return res.status(403).json({
+                success: false,
+                error: 'Your account has been suspended. Contact an administrator.'
+            });
+        }
+
         if (user.role === 'volunteer' && !user.emailVerified) {
             if (!user.emailVerificationToken) {
                 user.emailVerified = true;

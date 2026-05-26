@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema({
         enum: ['volunteer', 'ngo', 'admin'],
         default: 'volunteer'
     },
+    accountStatus: {
+        type: String,
+        enum: ['active', 'suspended'],
+        default: 'active'
+    },
     createdAt: {
         type: Date,
         default: Date.now
