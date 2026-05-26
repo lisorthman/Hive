@@ -31,6 +31,10 @@ export default function Login() {
             }
         } catch (err: any) {
             console.error('Login error:', err);
+            if (err.requiresVerification) {
+                navigate('/verify', { state: { email: err.email || email } });
+                return;
+            }
             if (err.message === 'Invalid credentials') {
                 setError('Invalid email or password. Please try again.');
             } else {

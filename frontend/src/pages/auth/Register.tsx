@@ -57,13 +57,20 @@ export default function Register() {
 
             // We need to bypass the type check for now since authService expects JSON
             // In a real app, we'd update the authService type signature
-            await authService.register(formData as any);
+            const result = await authService.register(formData as any);
 
             // Redirect based on role
             if (role === 'ngo') {
                 // Show success message or redirect to a waiting page
                 alert("Registration successful! Please wait for admin approval."); // Simple feedback for now
                 navigate('/login');
+            } else if (result.requiresVerification) {
+                navigate('/verify', {
+                    state: {
+                        email,
+                        devVerificationLink: result.devVerificationLink
+                    }
+                });
             } else {
                 navigate('/dashboard');
             }
