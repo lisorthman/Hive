@@ -61,19 +61,34 @@ const RECENT_ACTIVITY = [
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'ngos' | 'users'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'ngos' | 'users' | 'audit'>('overview');
+    const [auditLogs, setAuditLogs] = useState<any[]>([]);
+    const [auditLoading, setAuditLoading] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [selectedAction, setSelectedAction] = useState<{ type: 'approve' | 'suspend' | 'reject', target: string, id: string } | null>(null);
     const [ngoRequests, setNgoRequests] = useState<any[]>([]);
 
     const [ngoFilter, setNgoFilter] = useState<'pending' | 'verified' | 'rejected'>('pending');
 
+    const fetchAuditLogs = async () => {
+        try {
+            setAuditLoading(true);
+            const data = await adminService.getAuditLogs(100);
+            setAuditLogs(data);
+        } catch (error) {
+            console.error('Failed to fetch audit logs:', error);
+        } finally {
+            setAuditLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'ngos') {
             fetchNGOs();
         } else if (activeTab === 'overview') {
-            // optimized to just fetch pending for overview
             fetchNGOs('pending');
+        } else if (activeTab === 'audit') {
+            fetchAuditLogs();
         }
     }, [activeTab, ngoFilter]);
 
@@ -111,8 +126,10 @@ export default function AdminDashboard() {
             } else if (selectedAction.type === 'reject') {
                 await adminService.updateNGOStatus(selectedAction.id, 'rejected');
             }
-            // Refresh list
             fetchNGOs();
+            if (activeTab === 'audit') {
+                fetchAuditLogs();
+            }
         } catch (error) {
             console.error('Failed to update NGO status:', error);
         }
@@ -133,9 +150,9 @@ export default function AdminDashboard() {
                     <SidebarLink icon={Activity} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
                     <SidebarLink icon={Building2} label="NGO Approvals" active={activeTab === 'ngos'} onClick={() => setActiveTab('ngos')} badge={ngoRequests.length.toString()} />
                     <SidebarLink icon={Users} label="User Roles" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
+                    <SidebarLink icon={ShieldCheck} label="Audit Log" active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} />
                     <div className="pt-4 mt-4 border-t border-slate-100 space-y-1">
                         <SidebarLink icon={Settings} label="System Config" active={false} />
-                        <SidebarLink icon={ShieldCheck} label="Security Logs" active={false} />
                         <SidebarLink
                             icon={LogOut}
                             label="Logout"
@@ -456,6 +473,63 @@ export default function AdminDashboard() {
                                         ))}
                                     </TableBody>
                                 </Table>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {activeTab === 'audit' && (
+                        <Card className="border-slate-100">
+                            <CardContent className="p-0">
+                                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-bold text-hive-text-primary">Audit log</h3>
+                                        <p className="text-xs text-hive-text-secondary mt-1">
+                                            NGO status changes, admin comment removals, and event deletions (payload stored as SHA-256 hash).
+                                        </p>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={fetchAuditLogs} disabled={auditLoading}>
+                                        Refresh
+                                    </Button>
+                                </div>
+                                {auditLoading ? (
+                                    <p className="p-8 text-center text-sm text-hive-text-secondary">Loading audit entries…</p>
+                                ) : auditLogs.length === 0 ? (
+                                    <p className="p-8 text-center text-sm text-hive-text-secondary">No audit entries yet.</p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-slate-50/50">
+                                                <TableHead>When</TableHead>
+                                                <TableHead>Actor</TableHead>
+                                                <TableHead>Action</TableHead>
+                                                <TableHead>Target</TableHead>
+                                                <TableHead>Payload hash</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {auditLogs.map((log) => (
+                                                <TableRow key={log._id}>
+                                                    <TableCell className="text-xs text-hive-text-secondary whitespace-nowrap">
+                                                        {new Date(log.createdAt).toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <p className="text-sm font-bold text-hive-text-primary">{log.actorName}</p>
+                                                        <p className="text-[10px] text-hive-text-secondary uppercase">{log.actorRole}</p>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge className="text-[10px] capitalize">{log.action.replace(/_/g, ' ')}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs font-mono text-hive-text-secondary">
+                                                        {log.targetType}:{String(log.targetId).slice(-8)}
+                                                    </TableCell>
+                                                    <TableCell className="text-[10px] font-mono text-hive-text-secondary max-w-[140px] truncate" title={log.payloadHash}>
+                                                        {log.payloadHash.slice(0, 12)}…
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </CardContent>
                         </Card>
                     )}

@@ -29,5 +29,18 @@ export const adminService = {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         return data.data;
+    },
+
+    async getAuditLogs(limit = 50) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/admin/audit-logs?limit=${limit}`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        return data.data;
     }
 };
