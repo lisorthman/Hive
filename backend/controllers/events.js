@@ -1,6 +1,8 @@
 const Event = require('../models/Event');
+const User = require('../models/User');
 const { recordAudit } = require('../utils/auditLog');
 const Attendance = require('../models/Attendance');
+const { recommendEventsForUser } = require('../utils/recommendEvents');
 const Notification = require('../models/Notification');
 const { promoteFromWaitlist } = require('../utils/waitlist');
 const notifyEventVolunteers = require('../utils/notifyEventVolunteers');
@@ -22,6 +24,29 @@ exports.getEvents = async (req, res) => {
             success: true,
             count: events.length,
             data: events
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Get personalized event recommendations for volunteer
+// @route   GET /api/events/recommended?lat=&lng=
+// @access  Private (volunteer, admin)
+exports.getRecommendedEvents = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('interests skills availability');
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        const { lat, lng } = req.query;
+        const data = await recommendEventsForUser(user, { lat, lng, limit: 12 });
+
+        res.status(200).json({
+            success: true,
+            count: data.length,
+            data
         });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });

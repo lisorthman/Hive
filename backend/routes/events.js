@@ -10,7 +10,8 @@ const {
     getJoinedEvents,
     getWaitlistedEvents,
     getEventParticipation,
-    leaveEvent
+    leaveEvent,
+    getRecommendedEvents
 } = require('../controllers/events');
 
 const router = express.Router();
@@ -20,6 +21,7 @@ const { protect, authorize } = require('../middleware/auth');
 router.get('/my-events', protect, authorize('ngo', 'admin'), getMyEvents);
 router.get('/joined', protect, authorize('volunteer', 'admin'), getJoinedEvents);
 router.get('/waitlisted', protect, authorize('volunteer', 'admin'), getWaitlistedEvents);
+router.get('/recommended', protect, authorize('volunteer', 'admin'), getRecommendedEvents);
 
 router
     .route('/')
