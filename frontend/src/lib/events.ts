@@ -117,6 +117,26 @@ export const eventService = {
         }
     },
 
+    async getEventParticipation(id: string) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/events/${id}/participation`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch participation');
+        return data.data;
+    },
+
+    async getWaitlistedEvents() {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/events/waitlisted`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch waitlisted events');
+        return data.data;
+    },
+
     async joinEvent(id: string) {
         try {
             const token = localStorage.getItem('token');
@@ -128,7 +148,7 @@ export const eventService = {
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to join event');
-            return data.data;
+            return data;
         } catch (error) {
             console.error('Error joining event:', error);
             throw error;
@@ -146,7 +166,7 @@ export const eventService = {
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to leave event');
-            return data.data;
+            return data;
         } catch (error) {
             console.error('Error leaving event:', error);
             throw error;
