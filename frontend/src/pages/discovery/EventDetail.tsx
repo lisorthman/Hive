@@ -40,7 +40,9 @@ export default function EventDetail() {
     const [event, setEvent] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [hasJoined, setHasJoined] = useState(false);
+    const [membership, setMembership] = useState<'none' | 'joined' | 'waitlisted'>('none');
+    const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
+    const [isFull, setIsFull] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
@@ -55,14 +57,19 @@ export default function EventDetail() {
                 setEvent(data);
 
                 const currentUser = authService.getCurrentUser();
-                const joined = data.volunteersJoined?.some(
-                    (v: any) => (v._id || v).toString() === currentUser?.id
+                setIsFull(
+                    (data.volunteersJoined?.length || 0) >= data.capacity
                 );
-                if (currentUser && joined) {
-                    setHasJoined(true);
-                }
 
                 if (currentUser?.id && id) {
+                    try {
+                        const participation = await eventService.getEventParticipation(id);
+                        setMembership(participation.membership);
+                        setWaitlistPosition(participation.waitlistPosition);
+                        setIsFull(participation.isFull);
+                    } catch {
+                        setMembership('none');
+                    }
                     try {
                         const status = await attendanceService.getMyAttendanceStatus(id);
                         setCanReview(!!status.canReview);
@@ -97,13 +104,22 @@ export default function EventDetail() {
         if (!event || !id) return;
         setIsJoining(true);
         try {
-            await eventService.joinEvent(id);
-            setHasJoined(true);
-            setAlertMessage("You've successfully joined the mission! We've sent the details to your email.");
+            const result = await eventService.joinEvent(id);
+            if (result.membership === 'waitlisted') {
+                setMembership('waitlisted');
+                setWaitlistPosition(result.waitlistPosition ?? null);
+                setAlertMessage(
+                    result.message ||
+                        `Mission is full. You are #${result.waitlistPosition} on the waitlist.`
+                );
+            } else {
+                setMembership('joined');
+                setAlertMessage("You've successfully joined the mission!");
+            }
             setShowAlert(true);
-            // Refresh event data to update volunteer count
             const updatedEvent = await eventService.getEvent(id);
             setEvent(updatedEvent);
+            setIsFull((updatedEvent.volunteersJoined?.length || 0) >= updatedEvent.capacity);
             setTimeout(() => setShowAlert(false), 5000);
         } catch (err: any) {
             setError(err.message);
@@ -114,17 +130,27 @@ export default function EventDetail() {
 
     const handleLeave = async () => {
         if (!event || !id) return;
-        if (!window.confirm("Are you sure you want to leave this mission?")) return;
+        const confirmMsg =
+            membership === 'waitlisted'
+                ? 'Leave the waitlist for this mission?'
+                : 'Are you sure you want to leave this mission?';
+        if (!window.confirm(confirmMsg)) return;
 
-        setIsJoining(true); // Reusing isJoining state for loading
+        setIsJoining(true);
         try {
-            await eventService.leaveEvent(id);
-            setHasJoined(false);
-            setAlertMessage("You have left the mission. We hope to see you in another one soon!");
+            const result = await eventService.leaveEvent(id);
+            setMembership('none');
+            setWaitlistPosition(null);
+            setAlertMessage(
+                result.message ||
+                    (membership === 'waitlisted'
+                        ? 'You have left the waitlist.'
+                        : 'You have left the mission.')
+            );
             setShowAlert(true);
-            // Refresh event data
             const updatedEvent = await eventService.getEvent(id);
             setEvent(updatedEvent);
+            setIsFull((updatedEvent.volunteersJoined?.length || 0) >= updatedEvent.capacity);
             setTimeout(() => setShowAlert(false), 5000);
         } catch (err: any) {
             setError(err.message);
@@ -132,6 +158,9 @@ export default function EventDetail() {
             setIsJoining(false);
         }
     };
+
+    const hasJoined = membership === 'joined';
+    const onWaitlist = membership === 'waitlisted';
 
     if (isLoading) {
         return (
@@ -403,29 +432,39 @@ export default function EventDetail() {
                                             </div>
 
                                             <div className="space-y-3">
+                                                {onWaitlist && (
+                                                    <p className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-center">
+                                                        You are #{waitlistPosition} on the waitlist
+                                                    </p>
+                                                )}
                                                 <Button
                                                     className="w-full py-6 font-bold text-lg rounded-xl shadow-hive group"
                                                     isLoading={isJoining}
                                                     onClick={handleJoin}
-                                                    disabled={hasJoined || (event.volunteersJoined?.length >= event.capacity)}
+                                                    disabled={hasJoined || onWaitlist}
                                                 >
                                                     {hasJoined ? (
                                                         <div className="flex items-center gap-2">
                                                             <CheckCircle2 className="h-5 w-5" /> Already Joined
                                                         </div>
-                                                    ) : (event.volunteersJoined?.length >= event.capacity) ? (
-                                                        "Mission Full"
-                                                    ) : "Join Mission"}
+                                                    ) : onWaitlist ? (
+                                                        `On waitlist (#${waitlistPosition})`
+                                                    ) : isFull ? (
+                                                        'Join Waitlist'
+                                                    ) : (
+                                                        'Join Mission'
+                                                    )}
                                                 </Button>
 
-                                                {hasJoined && (
+                                                {(hasJoined || onWaitlist) && (
                                                     <Button
                                                         variant="outline"
                                                         className="w-full py-4 text-rose-600 border-rose-100 hover:bg-rose-50 text-xs font-bold uppercase tracking-wider"
                                                         onClick={handleLeave}
                                                         disabled={isJoining}
                                                     >
-                                                        <LogOut className="h-4 w-4 mr-2" /> Leave Mission
+                                                        <LogOut className="h-4 w-4 mr-2" />
+                                                        {onWaitlist ? 'Leave Waitlist' : 'Leave Mission'}
                                                     </Button>
                                                 )}
                                             </div>
@@ -509,17 +548,24 @@ export default function EventDetail() {
                         <Button
                             className={cn(
                                 "flex-1 py-4 font-bold rounded-xl shadow-hive",
-                                hasJoined && "bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100"
+                                (hasJoined || onWaitlist) && "bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100"
                             )}
                             isLoading={isJoining}
-                            onClick={hasJoined ? handleLeave : handleJoin}
-                            disabled={!hasJoined && (event.volunteersJoined?.length >= event.capacity)}
+                            onClick={hasJoined || onWaitlist ? handleLeave : handleJoin}
                         >
                             {hasJoined ? (
                                 <div className="flex items-center gap-2">
                                     <LogOut className="h-5 w-5" /> Leave Mission
                                 </div>
-                            ) : (event.volunteersJoined?.length >= event.capacity) ? "Mission Full" : "Join Event"}
+                            ) : onWaitlist ? (
+                                <div className="flex items-center gap-2">
+                                    <LogOut className="h-5 w-5" /> Leave Waitlist
+                                </div>
+                            ) : isFull ? (
+                                'Join Waitlist'
+                            ) : (
+                                'Join Event'
+                            )}
                         </Button>
                         <Button variant="outline" className="p-4 rounded-xl">
                             <MessageCircle className="h-5 w-5" />

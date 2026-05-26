@@ -202,8 +202,13 @@ export default function NGODashboard() {
                                                             </div>
                                                             <div className="space-y-1">
                                                                 <p className="text-xs text-slate-900 leading-relaxed">
-                                                                    <span className="font-bold">{n.sender?.name}</span> {n.message.replace(n.sender?.name, '')}
+                                                                    {n.message}
                                                                 </p>
+                                                                {n.event?.title && (
+                                                                    <p className="text-[10px] font-bold text-hive-primary">
+                                                                        {n.event.title}
+                                                                    </p>
+                                                                )}
                                                                 <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
                                                                     <Clock className="h-3 w-3" />
                                                                     {new Date(n.createdAt).toLocaleDateString()}
