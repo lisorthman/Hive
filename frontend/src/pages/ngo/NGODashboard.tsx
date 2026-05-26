@@ -14,7 +14,8 @@ import {
     Loader2,
     CheckCircle2,
     Clock,
-    UserCheck
+    UserCheck,
+    Download
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -23,6 +24,7 @@ import { authService } from '../../lib/auth';
 import { eventService } from '../../lib/events';
 import { notificationService } from '../../lib/notifications';
 import { reviewService } from '../../lib/reviews';
+import { reportService } from '../../lib/reports';
 import { cn } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
 
@@ -40,6 +42,7 @@ export default function NGODashboard() {
     const [showNotifications, setShowNotifications] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [reviewSummary, setReviewSummary] = useState<any>(null);
+    const [isDownloadingReport, setIsDownloadingReport] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const fetchEvents = async () => {
@@ -123,6 +126,17 @@ export default function NGODashboard() {
     const handleDeleteClick = (id: string) => {
         setSelectedEventId(id);
         setIsDeleteModalOpen(true);
+    };
+
+    const handleDownloadReport = async (format: 'csv' | 'pdf') => {
+        setIsDownloadingReport(true);
+        try {
+            await reportService.downloadImpactReport(format);
+        } catch (error) {
+            console.error('Failed to download impact report:', error);
+        } finally {
+            setIsDownloadingReport(false);
+        }
     };
 
     const confirmDelete = async () => {
@@ -246,14 +260,44 @@ export default function NGODashboard() {
                         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Organization Dashboard</h1>
                         <p className="text-slate-500 mt-1">Manage your events and track impact.</p>
                     </div>
-                    <Button
-                        size="lg"
-                        className="gap-2 shadow-lg shadow-hive-primary/20"
-                        onClick={() => navigate('/ngo-create')}
-                    >
-                        <Plus className="h-5 w-5" />
-                        Create New Event
-                    </Button>
+                    <div className="flex flex-wrap gap-3">
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            className="gap-2"
+                            disabled={isDownloadingReport}
+                            onClick={() => handleDownloadReport('csv')}
+                        >
+                            {isDownloadingReport ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                                <Download className="h-5 w-5" />
+                            )}
+                            Download report (CSV)
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            className="gap-2"
+                            disabled={isDownloadingReport}
+                            onClick={() => handleDownloadReport('pdf')}
+                        >
+                            {isDownloadingReport ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                                <Download className="h-5 w-5" />
+                            )}
+                            Download report (PDF)
+                        </Button>
+                        <Button
+                            size="lg"
+                            className="gap-2 shadow-lg shadow-hive-primary/20"
+                            onClick={() => navigate('/ngo-create')}
+                        >
+                            <Plus className="h-5 w-5" />
+                            Create New Event
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Stats Overview */}
