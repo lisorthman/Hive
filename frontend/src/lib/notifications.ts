@@ -1,8 +1,8 @@
-import { authService } from './auth';
+import { API_URL, authService } from './auth';
 
 export const notificationService = {
     async getNotifications() {
-        const response = await fetch('http://127.0.0.1:5000/api/notifications', {
+        const response = await fetch(`${API_URL}/notifications`, {
             headers: {
                 'Authorization': `Bearer ${authService.getToken()}`
             }
@@ -13,7 +13,7 @@ export const notificationService = {
     },
 
     async markAsRead(id: string) {
-        const response = await fetch(`http://127.0.0.1:5000/api/notifications/${id}/read`, {
+        const response = await fetch(`${API_URL}/notifications/${id}/read`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${authService.getToken()}`
@@ -25,7 +25,7 @@ export const notificationService = {
     },
 
     async markAllAsRead() {
-        const response = await fetch('http://127.0.0.1:5000/api/notifications/read-all', {
+        const response = await fetch(`${API_URL}/notifications/read-all`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${authService.getToken()}`

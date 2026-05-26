@@ -56,6 +56,16 @@ export const attendanceService = {
         }
     },
 
+    async getMyAttendanceStatus(eventId: string) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/attendance/event/${eventId}/my-status`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch attendance status');
+        return data.data;
+    },
+
     async checkInVolunteer(eventId: string, code: string) {
         try {
             const token = localStorage.getItem('token');
