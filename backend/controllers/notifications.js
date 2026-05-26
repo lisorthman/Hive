@@ -5,7 +5,10 @@ const Notification = require('../models/Notification');
 // @access  Private
 exports.getNotifications = async (req, res) => {
     try {
-        const notifications = await Notification.find({ recipient: req.user.id })
+        const notifications = await Notification.find({
+            recipient: req.user.id,
+            type: { $ne: 'volunteer_login' }
+        })
             .sort('-createdAt')
             .populate({
                 path: 'sender',
