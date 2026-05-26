@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import '../../lib/leafletIcon';
 import 'leaflet/dist/leaflet.css';
 import { cn } from '../../lib/utils';
 import { eventService } from '../../lib/events';
@@ -190,7 +191,7 @@ export default function EventDiscovery() {
                     "flex-1 relative bg-slate-100 h-[400px] lg:h-auto",
                     viewMode === 'list' ? 'hidden lg:block' : 'block'
                 )}>
-                    <MapContainer center={[51.505, -0.09]} zoom={13} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
+                    <MapContainer center={[6.9271, 79.8612]} zoom={11} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
                         <TileLayer
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -198,6 +199,7 @@ export default function EventDiscovery() {
                         {filteredEvents.map(event => {
                             const coords = event.location?.coordinates;
                             if (!coords || coords.length < 2) return null;
+                            if (coords[0] === 0 && coords[1] === 0) return null;
                             const isJoined = joinedIds.has(event._id);
                             // GeoJSON is [lng, lat], Leaflet is [lat, lng]
                             const position: [number, number] = [coords[1], coords[0]];

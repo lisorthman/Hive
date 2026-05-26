@@ -25,6 +25,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Alert } from '../../components/ui/Alert';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import '../../lib/leafletIcon';
 import 'leaflet/dist/leaflet.css';
 import { eventService } from '../../lib/events';
 import { authService } from '../../lib/auth';
@@ -195,7 +196,13 @@ export default function EventDetail() {
         month: 'long',
         day: 'numeric'
     });
-    const coordinates: [number, number] = [event.location.coordinates[1], event.location.coordinates[0]];
+    const lng = event.location?.coordinates?.[0];
+    const lat = event.location?.coordinates?.[1];
+    const hasValidCoords =
+        typeof lng === 'number' &&
+        typeof lat === 'number' &&
+        !(lng === 0 && lat === 0);
+    const coordinates: [number, number] = hasValidCoords ? [lat, lng] : [6.9271, 79.8612];
 
     const orgId = (event.organization?._id || event.organization)?.toString();
     const isOwner = authService.getCurrentUser()?.id === orgId;
@@ -340,19 +347,26 @@ export default function EventDetail() {
                                     {event.location.name}
                                 </p>
                             </div>
+                            {!hasValidCoords && (
+                                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                    Exact map pin not set for this mission. Address shown as text only.
+                                </p>
+                            )}
                             <div className="h-64 rounded-2xl overflow-hidden border border-slate-100 shadow-sm z-10">
-                                <MapContainer center={coordinates} zoom={15} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
+                                <MapContainer center={coordinates} zoom={hasValidCoords ? 15 : 11} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
                                     <TileLayer
                                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                     />
-                                    <Marker position={coordinates}>
-                                        <Popup>
-                                            <div className="p-1">
-                                                <div className="font-bold">{event.location.name}</div>
-                                            </div>
-                                        </Popup>
-                                    </Marker>
+                                    {hasValidCoords && (
+                                        <Marker position={coordinates}>
+                                            <Popup>
+                                                <div className="p-1">
+                                                    <div className="font-bold">{event.location.name}</div>
+                                                </div>
+                                            </Popup>
+                                        </Marker>
+                                    )}
                                 </MapContainer>
                             </div>
                         </section>

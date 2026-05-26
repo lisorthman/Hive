@@ -24,22 +24,8 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
 import { cn } from '../../lib/utils';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 import { eventService } from '../../lib/events';
-
-// Helper component to handle map clicks
-function LocationMarker({ position, setPosition }: { position: [number, number] | null, setPosition: (pos: [number, number]) => void }) {
-    useMapEvents({
-        click(e) {
-            setPosition([e.latlng.lat, e.latlng.lng]);
-        },
-    });
-
-    return position === null ? null : (
-        <Marker position={position} />
-    );
-}
+import { LocationMapPicker } from '../../components/map/LocationMapPicker';
 
 export default function EventForm() {
     const navigate = useNavigate();
@@ -56,7 +42,7 @@ export default function EventForm() {
         capacity: 20,
         address: '',
         prepNotes: '',
-        coords: [51.505, -0.09] as [number, number] | null
+        coords: null as [number, number] | null
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,10 +79,6 @@ export default function EventForm() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const setCoords = (pos: [number, number]) => {
-        setFormData(prev => ({ ...prev, coords: pos }));
-    };
-
     const handlePublish = async () => {
         setIsSubmitting(true);
         setError(null);
@@ -108,8 +90,14 @@ export default function EventForm() {
             return;
         }
 
-        if (!formData.address) {
+        if (!formData.address?.trim()) {
             setError('Please provide a specific meeting point or address for the location');
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (!formData.coords || (formData.coords[0] === 0 && formData.coords[1] === 0)) {
+            setError('Please search for a location or click the map to place the mission pin');
             setIsSubmitting(false);
             return;
         }
@@ -278,30 +266,16 @@ export default function EventForm() {
 
                 {/* Location Section */}
                 <Section title="Location" icon={<MapPin className="h-5 w-5" />}>
-                    <div className="space-y-6">
-                        <Input
-                            label="Specific Meeting Point / Address (Required)"
-                            placeholder="e.g., Central Park Gate 4"
-                            value={formData.address}
-                            onChange={(e) => handleInputChange('address', e.target.value)}
-                            required
-                        />
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-bold text-hive-text-primary">Pin Point on Map</label>
-                                <span className="text-[10px] font-bold text-hive-secondary uppercase tracking-wider">Click map to set location</span>
-                            </div>
-                            <div className="h-64 rounded-2xl overflow-hidden border border-slate-100 shadow-sm relative group z-10">
-                                <MapContainer center={[51.505, -0.09]} zoom={13} style={{ height: '100%', width: '100%' }}>
-                                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                    <LocationMarker position={formData.coords} setPosition={setCoords} />
-                                </MapContainer>
-                                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm p-2 rounded-lg text-[10px] font-bold text-hive-text-secondary border border-slate-100 uppercase z-[1001]">
-                                    GPS: {formData.coords?.[0].toFixed(4)}, {formData.coords?.[1].toFixed(4)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <LocationMapPicker
+                        value={{ address: formData.address, coords: formData.coords }}
+                        onChange={(loc) =>
+                            setFormData((prev) => ({
+                                ...prev,
+                                address: loc.address,
+                                coords: loc.coords
+                            }))
+                        }
+                    />
                 </Section>
 
                 {/* Additional Information Section */}
