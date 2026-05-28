@@ -23,13 +23,16 @@ const auditLogSchema = new mongoose.Schema({
             'event_deleted',
             'user_suspended',
             'user_activated',
-            'user_removed'
+            'user_removed',
+            'impact_post_deleted',
+            'impact_comment_deleted',
+            'impact_content_flagged'
         ],
         required: true
     },
     targetType: {
         type: String,
-        enum: ['user', 'event', 'comment'],
+        enum: ['user', 'event', 'comment', 'impact_post', 'impact_comment'],
         required: true
     },
     targetId: {

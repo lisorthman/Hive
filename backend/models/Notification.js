@@ -15,6 +15,10 @@ const NotificationSchema = new mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: 'Event'
     },
+    impactPost: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'ImpactPost'
+    },
     type: {
         type: String,
         enum: [
@@ -24,7 +28,10 @@ const NotificationSchema = new mongoose.Schema({
             'volunteer_login',
             'event_updated',
             'event_cancelled',
-            'promoted_from_waitlist'
+            'promoted_from_waitlist',
+            'impact_story_tagged',
+            'impact_story_liked',
+            'impact_story_commented'
         ],
         default: 'volunteer_joined'
     },
