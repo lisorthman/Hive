@@ -55,6 +55,7 @@ export default function AdminDashboard() {
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
     const [userSearch, setUserSearch] = useState('');
+    const [impactReports, setImpactReports] = useState<any[]>([]);
 
     const fetchPlatformStats = async () => {
         try {
@@ -101,6 +102,16 @@ export default function AdminDashboard() {
         }
     };
 
+    const fetchImpactReports = async () => {
+        try {
+            const data = await adminService.getOpenImpactReports();
+            setImpactReports(data);
+        } catch (error) {
+            console.error('Failed to fetch impact reports:', error);
+            setImpactReports([]);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'ngos') {
             fetchNGOs();
@@ -110,6 +121,7 @@ export default function AdminDashboard() {
             fetchAuditLogs();
         } else if (activeTab === 'audit') {
             fetchAuditLogs();
+            fetchImpactReports();
         } else if (activeTab === 'users') {
             fetchAdminUsers();
         }
@@ -120,6 +132,7 @@ export default function AdminDashboard() {
         fetchPlatformStats();
         fetchPlatformEvents();
         fetchAuditLogs();
+        fetchImpactReports();
     }, []);
 
     const fetchNGOs = async (statusOverride?: string) => {
@@ -568,6 +581,82 @@ export default function AdminDashboard() {
                     )}
 
                     {activeTab === 'audit' && (
+                        <div className="space-y-6">
+                        <Card className="border-slate-100">
+                            <CardContent className="p-0">
+                                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-bold text-hive-text-primary">Impact moderation queue</h3>
+                                        <p className="text-xs text-hive-text-secondary mt-1">
+                                            Open reports from the community feed.
+                                        </p>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={fetchImpactReports}>
+                                        Refresh
+                                    </Button>
+                                </div>
+                                {impactReports.length === 0 ? (
+                                    <p className="p-8 text-center text-sm text-hive-text-secondary">No open impact reports.</p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-slate-50/50">
+                                                <TableHead>When</TableHead>
+                                                <TableHead>Reporter</TableHead>
+                                                <TableHead>Target</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {impactReports.map((r) => (
+                                                <TableRow key={r._id}>
+                                                    <TableCell className="text-xs text-hive-text-secondary">
+                                                        {new Date(r.createdAt).toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <p className="text-sm font-bold text-hive-text-primary">{r.reporter?.name}</p>
+                                                        <p className="text-[10px] text-hive-text-secondary uppercase">{r.reporter?.role}</p>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs font-mono text-hive-text-secondary">
+                                                        {r.targetType}:{String(r.targetId).slice(-8)}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge className="text-[10px] capitalize">{r.status}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="text-xs"
+                                                                onClick={async () => {
+                                                                    await adminService.resolveImpactReport(r._id, 'resolved');
+                                                                    fetchImpactReports();
+                                                                }}
+                                                            >
+                                                                Resolve
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="text-xs"
+                                                                onClick={async () => {
+                                                                    await adminService.resolveImpactReport(r._id, 'dismissed');
+                                                                    fetchImpactReports();
+                                                                }}
+                                                            >
+                                                                Dismiss
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </CardContent>
+                        </Card>
                         <Card className="border-slate-100">
                             <CardContent className="p-0">
                                 <div className="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -622,6 +711,7 @@ export default function AdminDashboard() {
                                 )}
                             </CardContent>
                         </Card>
+                        </div>
                     )}
                 </div>
             </main>
