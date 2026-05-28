@@ -118,5 +118,15 @@ export const attendanceService = {
             console.error('Error fetching leaderboard:', error);
             throw error;
         }
+    },
+
+    async getVolunteerSummaryForOrg(volunteerId: string) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/attendance/volunteer/${volunteerId}/summary`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch volunteer summary');
+        return data.data;
     }
 };

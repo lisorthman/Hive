@@ -153,14 +153,16 @@ export const eventService = {
         return data.data;
     },
 
-    async joinEvent(id: string) {
+    async joinEvent(id: string, shiftSlotId?: string) {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`${API_URL}/events/${id}/join`, {
                 method: 'PUT',
                 headers: {
+                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
-                }
+                },
+                body: JSON.stringify(shiftSlotId ? { shiftSlotId } : {})
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to join event');
@@ -171,14 +173,16 @@ export const eventService = {
         }
     },
 
-    async leaveEvent(id: string) {
+    async leaveEvent(id: string, shiftSlotId?: string) {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`${API_URL}/events/${id}/leave`, {
                 method: 'DELETE',
                 headers: {
+                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
-                }
+                },
+                body: JSON.stringify(shiftSlotId ? { shiftSlotId } : {})
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to leave event');
@@ -187,5 +191,37 @@ export const eventService = {
             console.error('Error leaving event:', error);
             throw error;
         }
+    },
+
+    async getEventVolunteers(id: string) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/events/${id}/volunteers`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch event volunteers');
+        return data.data;
+    },
+
+    async removeVolunteerFromEvent(
+        eventId: string,
+        volunteerId: string,
+        message: string
+    ) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(
+            `${API_URL}/events/${eventId}/volunteers/${volunteerId}`,
+            {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ message })
+            }
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to remove volunteer');
+        return data.data;
     }
 };
