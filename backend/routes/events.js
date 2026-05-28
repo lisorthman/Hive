@@ -11,7 +11,9 @@ const {
     getWaitlistedEvents,
     getEventParticipation,
     leaveEvent,
-    getRecommendedEvents
+    getRecommendedEvents,
+    getEventVolunteers,
+    removeEventVolunteer
 } = require('../controllers/events');
 
 const router = express.Router();
@@ -38,5 +40,12 @@ router
 
 router.route('/:id/join').put(protect, authorize('volunteer', 'admin'), joinEvent);
 router.route('/:id/leave').delete(protect, authorize('volunteer', 'admin'), leaveEvent);
+router.get('/:id/volunteers', protect, authorize('ngo', 'admin'), getEventVolunteers);
+router.delete(
+    '/:id/volunteers/:volunteerId',
+    protect,
+    authorize('ngo', 'admin'),
+    removeEventVolunteer
+);
 
 module.exports = router;

@@ -20,6 +20,7 @@ const NotificationSchema = new mongoose.Schema({
         enum: [
             'volunteer_joined',
             'volunteer_left',
+            'volunteer_removed',
             'volunteer_login',
             'event_updated',
             'event_cancelled',
