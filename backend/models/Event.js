@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const shiftSlotSchema = require('./ShiftSlotSchema');
 
 const eventSchema = new mongoose.Schema({
     title: {
@@ -47,6 +48,11 @@ const eventSchema = new mongoose.Schema({
         type: Number,
         required: [true, 'Please add capacity']
     },
+    useShiftSlots: {
+        type: Boolean,
+        default: false
+    },
+    shiftSlots: [shiftSlotSchema],
     volunteersJoined: [
         {
             type: mongoose.Schema.ObjectId,

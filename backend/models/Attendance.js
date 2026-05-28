@@ -3,8 +3,15 @@ const mongoose = require('mongoose');
 const attendanceSchema = new mongoose.Schema({
     event: {
         type: mongoose.Schema.ObjectId,
-        ref: 'Event',
-        required: true
+        ref: 'Event'
+    },
+    eventInstance: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'EventInstance'
+    },
+    shiftSlotId: {
+        type: String,
+        default: null
     },
     volunteer: {
         type: mongoose.Schema.ObjectId,
@@ -29,7 +36,7 @@ const attendanceSchema = new mongoose.Schema({
     }
 });
 
-// Compound index to ensure a volunteer has only one attendance record per event
-attendanceSchema.index({ event: 1, volunteer: 1 }, { unique: true });
+attendanceSchema.index({ event: 1, volunteer: 1, shiftSlotId: 1 }, { unique: true, sparse: true });
+attendanceSchema.index({ eventInstance: 1, volunteer: 1, shiftSlotId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);
