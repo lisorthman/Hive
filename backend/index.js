@@ -33,6 +33,8 @@ const ngos = require('./routes/ngos');
 const reports = require('./routes/reports');
 const series = require('./routes/series');
 const instances = require('./routes/instances');
+const impactPosts = require('./routes/impactPosts');
+const impactComments = require('./routes/impactComments');
 
 // Mount routers
 app.use('/api/auth', auth);
@@ -46,6 +48,8 @@ app.use('/api/ngos', ngos);
 app.use('/api/reports', reports);
 app.use('/api/series', series);
 app.use('/api/instances', instances);
+app.use('/api/impact-posts', impactPosts);
+app.use('/api/impact-comments', impactComments);
 
 // Serve uploads
 const path = require('path');
