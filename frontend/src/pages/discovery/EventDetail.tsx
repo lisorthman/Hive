@@ -37,6 +37,7 @@ import { attendanceService } from '../../lib/attendance';
 import { cn } from '../../lib/utils';
 import { EventReviewsSection } from '../../components/event/EventReviewsSection';
 import { EventDiscussionSection } from '../../components/event/EventDiscussionSection';
+import { impactFeedService } from '../../lib/impactFeed';
 
 
 export default function EventDetail() {
@@ -58,6 +59,7 @@ export default function EventDetail() {
     const [showAlert, setShowAlert] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
     const [canReview, setCanReview] = useState(false);
+    const [impactStories, setImpactStories] = useState<any[]>([]);
 
     const applyParticipation = (p: ParticipationState, data: any) => {
         setParticipation(p);
@@ -119,6 +121,14 @@ export default function EventDetail() {
                         }
                     } else {
                         setCanReview(false);
+                    }
+                    try {
+                        const feed = await impactFeedService.getFeed(
+                            isInstance ? { eventInstanceId: id, limit: 6 } : { eventId: id, limit: 6 }
+                        );
+                        setImpactStories(feed.data || []);
+                    } catch {
+                        setImpactStories([]);
                     }
                 } else if (data.useShiftSlots && data.shiftSlots?.length) {
                     setParticipation({
@@ -490,6 +500,48 @@ export default function EventDetail() {
                                     </div>
                                 )}
                             </CardContent>
+                        </section>
+
+                        <section className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-bold">Mission Media Gallery</h2>
+                                {(isOwner || authService.getCurrentUser()?.role === 'admin') && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() =>
+                                            navigate(
+                                                isInstance
+                                                    ? `/impact-feed?eventInstanceId=${id}`
+                                                    : `/impact-feed?eventId=${id}`
+                                            )
+                                        }
+                                    >
+                                        Publish Story
+                                    </Button>
+                                )}
+                            </div>
+                            {impactStories.length === 0 ? (
+                                <p className="text-sm text-hive-text-secondary bg-white p-4 rounded-xl border border-slate-100">
+                                    No impact stories shared for this mission yet.
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {impactStories.flatMap((story: any) =>
+                                        (story.photos || []).slice(0, 3).map((photo: string, idx: number) => (
+                                            <img
+                                                key={`${story._id}-${idx}`}
+                                                src={
+                                                    photo.startsWith('http')
+                                                        ? photo
+                                                        : `http://127.0.0.1:5001${photo}`
+                                                }
+                                                className="w-full h-28 rounded-xl object-cover border border-slate-100"
+                                            />
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </section>
 
                         {/* Location & Map Section */}

@@ -16,7 +16,8 @@ import {
     Clock,
     UserCheck,
     Download,
-    UserX
+    UserX,
+    Sparkles
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -28,6 +29,7 @@ import { reviewService } from '../../lib/reviews';
 import { reportService } from '../../lib/reports';
 import { cn } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
+import { impactFeedService } from '../../lib/impactFeed';
 
 export default function NGODashboard() {
     const navigate = useNavigate();
@@ -51,6 +53,7 @@ export default function NGODashboard() {
     const [isLoadingVolunteers, setIsLoadingVolunteers] = useState(false);
     const [isRemovingVolunteerId, setIsRemovingVolunteerId] = useState<string | null>(null);
     const [removeMessage, setRemoveMessage] = useState('');
+    const [myImpactPosts, setMyImpactPosts] = useState<any[]>([]);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const fetchEvents = async () => {
@@ -74,6 +77,16 @@ export default function NGODashboard() {
         }
     };
 
+    const fetchMyImpactPosts = async () => {
+        try {
+            const data = await impactFeedService.getFeed({ ngo: user?.id, limit: 5 });
+            setMyImpactPosts(data.data || []);
+        } catch (error) {
+            console.error('Failed to fetch impact posts:', error);
+            setMyImpactPosts([]);
+        }
+    };
+
     const fetchNotifications = async () => {
         try {
             const data = await notificationService.getNotifications();
@@ -88,6 +101,7 @@ export default function NGODashboard() {
         fetchEvents();
         fetchNotifications();
         fetchReviewSummary();
+        fetchMyImpactPosts();
 
         // Poll for notifications every 30 seconds
         const interval = setInterval(fetchNotifications, 30000);
@@ -354,8 +368,58 @@ export default function NGODashboard() {
                             <Plus className="h-5 w-5" />
                             Create New Event
                         </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 h-9"
+                            onClick={() => navigate('/impact-feed')}
+                        >
+                            <Sparkles className="h-4 w-4" />
+                            Publish Impact Story
+                        </Button>
                     </div>
                 </div>
+
+                <Card className="border-slate-200 mb-8">
+                    <CardContent className="p-5 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-slate-900">
+                                Impact Story Management
+                            </h2>
+                            <Button size="sm" variant="outline" onClick={() => navigate('/impact-feed')}>
+                                Open Feed Studio
+                            </Button>
+                        </div>
+                        {myImpactPosts.length === 0 ? (
+                            <p className="text-sm text-slate-500">
+                                No impact stories published yet. Share your mission outcomes to recognize volunteers and build trust.
+                            </p>
+                        ) : (
+                            <div className="space-y-2">
+                                {myImpactPosts.map((post) => (
+                                    <div
+                                        key={post._id}
+                                        className="border border-slate-100 rounded-xl p-3 flex items-center justify-between"
+                                    >
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-900 line-clamp-1">{post.title}</p>
+                                            <p className="text-xs text-slate-500">
+                                                {post.likesCount || 0} likes · {post.commentsCount || 0} comments
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => navigate(`/impact-feed?focus=${post._id}`)}
+                                        >
+                                            View
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Stats Overview */}
                 {reviewSummary && reviewSummary.recentReviews?.length > 0 && (

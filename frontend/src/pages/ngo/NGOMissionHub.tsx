@@ -12,7 +12,8 @@ import {
     Loader2,
     ClipboardList,
     MapPin,
-    Shield
+    Shield,
+    Sparkles
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -202,6 +203,12 @@ export default function NGOMissionHub() {
                             description={`${commentCount} message${commentCount === 1 ? '' : 's'} in the thread.`}
                             icon={<MessageCircle className="h-5 w-5" />}
                             onClick={() => navigate(`/event/${eventId}#mission-discussion`)}
+                        />
+                        <ActionCard
+                            title="Publish impact story"
+                            description="Generate a story draft and publish mission outcomes to the community feed."
+                            icon={<Sparkles className="h-5 w-5" />}
+                            onClick={() => navigate(`/impact-feed?eventId=${eventId}`)}
                         />
                     </div>
                 </section>

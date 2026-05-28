@@ -4,6 +4,7 @@ import { ChevronLeft, Loader2, Mail, Award, Clock, Handshake } from 'lucide-reac
 import { Card, CardContent } from '../../components/ui/Card';
 import { attendanceService } from '../../lib/attendance';
 import { Alert } from '../../components/ui/Alert';
+import { impactFeedService } from '../../lib/impactFeed';
 
 export default function VolunteerInsight() {
     const { volunteerId } = useParams<{ volunteerId: string }>();
@@ -11,6 +12,7 @@ export default function VolunteerInsight() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [summary, setSummary] = useState<any>(null);
+    const [activity, setActivity] = useState<any>(null);
 
     useEffect(() => {
         const run = async () => {
@@ -19,6 +21,12 @@ export default function VolunteerInsight() {
                 setIsLoading(true);
                 const data = await attendanceService.getVolunteerSummaryForOrg(volunteerId);
                 setSummary(data);
+                try {
+                    const a = await impactFeedService.getVolunteerActivity(volunteerId);
+                    setActivity(a);
+                } catch {
+                    setActivity({ taggedPosts: [], completedMissions: [] });
+                }
             } catch (err: any) {
                 setError(err.message);
             } finally {
@@ -94,6 +102,26 @@ export default function VolunteerInsight() {
                             Level <span className="font-bold text-hive-text-primary">{stats.level}</span> · Score{' '}
                             <span className="font-bold text-hive-text-primary">{stats.score}</span>
                         </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="p-6">
+                        <h3 className="font-bold text-hive-text-primary mb-4">Activity Timeline</h3>
+                        {activity?.taggedPosts?.length ? (
+                            <div className="space-y-2 mb-4">
+                                {activity.taggedPosts.slice(0, 4).map((post: any) => (
+                                    <div key={post._id} className="border border-slate-100 rounded-xl p-3">
+                                        <p className="text-sm font-bold">{post.title}</p>
+                                        <p className="text-xs text-hive-text-secondary">
+                                            Tagged by {post.ngo?.name} · {new Date(post.createdAt).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-hive-text-secondary mb-4">No tagged impact stories yet.</p>
+                        )}
                     </CardContent>
                 </Card>
 
