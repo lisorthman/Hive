@@ -7,6 +7,12 @@ const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { recordAudit } = require('../utils/auditLog');
+const {
+    getVolunteerMissionIds,
+    buildVolunteerVisibilityFilter,
+    buildNgoVisibilityFilter,
+    canPublishImpactStory
+} = require('../utils/impactFeedAccess');
 
 const normalizeHashtags = (tags = []) =>
     tags
@@ -100,12 +106,14 @@ exports.createImpactPost = async (req, res) => {
 
         let mission = null;
         let checkedInSet = new Set();
+        let missionType = 'event';
         if (event) {
-            mission = await Event.findById(event).select('organization title');
+            mission = await Event.findById(event).select('organization title status');
             if (!mission) return res.status(404).json({ success: false, error: 'Event not found' });
             checkedInSet = await getCheckedInVolunteerIds({ eventId: event });
         } else if (eventInstance) {
-            mission = await EventInstance.findById(eventInstance).select('organization title');
+            missionType = 'instance';
+            mission = await EventInstance.findById(eventInstance).select('organization title status');
             if (!mission)
                 return res.status(404).json({ success: false, error: 'Event instance not found' });
             checkedInSet = await getCheckedInVolunteerIds({ eventInstanceId: eventInstance });
@@ -113,6 +121,16 @@ exports.createImpactPost = async (req, res) => {
 
         if (req.user.role !== 'admin' && mission.organization.toString() !== req.user.id) {
             return res.status(403).json({ success: false, error: 'Not authorized for this mission' });
+        }
+
+        const publishCheck = await canPublishImpactStory({
+            mission,
+            missionType,
+            checkedInCount: checkedInSet.size,
+            userRole: req.user.role
+        });
+        if (!publishCheck.ok) {
+            return res.status(400).json({ success: false, error: publishCheck.error });
         }
 
         const sanitizedTagged = [];
@@ -237,19 +255,24 @@ exports.getImpactPosts = async (req, res) => {
             volunteerId,
             featured,
             eventId,
-            eventInstanceId
+            eventInstanceId,
+            scope
         } = req.query;
         const parsedLimit = Math.min(parseInt(limit, 10) || 15, 50);
 
         const query = { isDeleted: false };
+        const andClauses = [];
+
         if (ngo) query.ngo = ngo;
         if (hashtag) query.hashtags = hashtag.replace(/^#/, '');
         if (cursor) query.createdAt = { $lt: new Date(cursor) };
         if (q?.trim()) {
-            query.$or = [
-                { title: { $regex: q.trim(), $options: 'i' } },
-                { description: { $regex: q.trim(), $options: 'i' } }
-            ];
+            andClauses.push({
+                $or: [
+                    { title: { $regex: q.trim(), $options: 'i' } },
+                    { description: { $regex: q.trim(), $options: 'i' } }
+                ]
+            });
         }
         if (category?.trim()) query.hashtags = category;
         if (featured === 'true') query.likesCount = { $gte: 10 };
@@ -260,18 +283,52 @@ exports.getImpactPosts = async (req, res) => {
             query.taggedVolunteers = volunteerId;
         }
 
+        if (scope === 'my_missions' && req.user.role === 'volunteer') {
+            const { eventIds, instanceIds } = await getVolunteerMissionIds(req.user.id);
+            const missionOr = [{ taggedVolunteers: req.user.id }];
+            if (eventIds.length) missionOr.push({ event: { $in: eventIds } });
+            if (instanceIds.length) missionOr.push({ eventInstance: { $in: instanceIds } });
+            andClauses.push({ $or: missionOr });
+        }
+
+        if (req.user.role === 'volunteer') {
+            andClauses.push(await buildVolunteerVisibilityFilter(req.user.id));
+        } else if (req.user.role === 'ngo') {
+            andClauses.push(buildNgoVisibilityFilter(req.user.id));
+        }
+
+        if (andClauses.length) query.$and = andClauses;
+
         const posts = await ImpactPost.find(query)
             .sort({ createdAt: -1 })
             .limit(parsedLimit)
             .populate('ngo', 'name')
             .populate('taggedVolunteers', 'name')
+            .populate('volunteerContributions.author', 'name')
             .lean();
+
+        const userDoc = await User.findById(req.user.id).select('savedImpactPosts').lean();
+        const savedSet = new Set((userDoc?.savedImpactPosts || []).map((id) => id.toString()));
+        const enriched = posts.map((p) => ({
+            ...p,
+            savedByMe: savedSet.has(p._id.toString()),
+            volunteerContributions: (p.volunteerContributions || []).filter((c) => {
+                const ngoId = (p.ngo?._id || p.ngo)?.toString();
+                const authorId = (c.author?._id || c.author)?.toString();
+                return (
+                    c.status === 'approved' ||
+                    authorId === req.user.id ||
+                    ngoId === req.user.id ||
+                    req.user.role === 'admin'
+                );
+            })
+        }));
 
         res.status(200).json({
             success: true,
-            count: posts.length,
-            nextCursor: posts.length ? posts[posts.length - 1].createdAt : null,
-            data: posts
+            count: enriched.length,
+            nextCursor: enriched.length ? enriched[enriched.length - 1].createdAt : null,
+            data: enriched
         });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });
@@ -285,11 +342,30 @@ exports.getImpactPost = async (req, res) => {
     try {
         const post = await ImpactPost.findById(req.params.id)
             .populate('ngo', 'name')
-            .populate('taggedVolunteers', 'name');
+            .populate('taggedVolunteers', 'name')
+            .populate('volunteerContributions.author', 'name');
         if (!post || post.isDeleted) {
             return res.status(404).json({ success: false, error: 'Post not found' });
         }
-        res.status(200).json({ success: true, data: post });
+
+        if (req.user.role === 'volunteer') {
+            const visFilter = await buildVolunteerVisibilityFilter(req.user.id);
+            const visible = await ImpactPost.exists({ _id: post._id, isDeleted: false, ...visFilter });
+            if (!visible) {
+                return res.status(403).json({ success: false, error: 'You cannot view this story' });
+            }
+        } else if (req.user.role === 'ngo' && post.ngo._id.toString() !== req.user.id) {
+            const visFilter = buildNgoVisibilityFilter(req.user.id);
+            const visible = await ImpactPost.exists({ _id: post._id, isDeleted: false, ...visFilter });
+            if (!visible) {
+                return res.status(403).json({ success: false, error: 'You cannot view this story' });
+            }
+        }
+
+        const userDoc = await User.findById(req.user.id).select('savedImpactPosts');
+        const savedByMe = userDoc.savedImpactPosts.some((id) => id.toString() === post._id.toString());
+
+        res.status(200).json({ success: true, data: { ...post.toObject(), savedByMe } });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });
     }
@@ -356,7 +432,7 @@ exports.unlikeImpactPost = async (req, res) => {
     }
 };
 
-// @desc    Save post to own profile
+// @desc    Toggle save post on own profile
 // @route   POST /api/impact-posts/:id/save
 // @access  Private
 exports.saveImpactPost = async (req, res) => {
@@ -365,15 +441,59 @@ exports.saveImpactPost = async (req, res) => {
         if (!post || post.isDeleted) {
             return res.status(404).json({ success: false, error: 'Post not found' });
         }
-        post.savesCount += 1;
+
+        const user = await User.findById(req.user.id);
+        const postId = post._id.toString();
+        const idx = user.savedImpactPosts.findIndex((id) => id.toString() === postId);
+        let saved = false;
+
+        if (idx >= 0) {
+            user.savedImpactPosts.splice(idx, 1);
+            post.savesCount = Math.max(0, (post.savesCount || 1) - 1);
+        } else {
+            user.savedImpactPosts.push(post._id);
+            post.savesCount = (post.savesCount || 0) + 1;
+            saved = true;
+        }
+
+        await user.save();
         await post.save();
-        res.status(200).json({ success: true, data: { savesCount: post.savesCount } });
+        res.status(200).json({
+            success: true,
+            data: { saved, savesCount: post.savesCount }
+        });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });
     }
 };
 
-// @desc    Share post
+// @desc    List saved impact posts for current user
+// @route   GET /api/impact-posts/saved/list
+// @access  Private
+exports.getSavedImpactPosts = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id)
+            .populate({
+                path: 'savedImpactPosts',
+                match: { isDeleted: false },
+                populate: [
+                    { path: 'ngo', select: 'name' },
+                    { path: 'taggedVolunteers', select: 'name' }
+                ]
+            })
+            .lean();
+
+        const posts = (user?.savedImpactPosts || [])
+            .filter(Boolean)
+            .map((p) => ({ ...p, savedByMe: true }));
+
+        res.status(200).json({ success: true, data: posts });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Share post (returns copy link)
 // @route   POST /api/impact-posts/:id/share
 // @access  Private
 exports.shareImpactPost = async (req, res) => {
@@ -384,7 +504,155 @@ exports.shareImpactPost = async (req, res) => {
         }
         post.sharesCount += 1;
         await post.save();
-        res.status(200).json({ success: true, data: { sharesCount: post.sharesCount } });
+        const base = (process.env.FRONTEND_URL || 'http://127.0.0.1:5173').replace(/\/$/, '');
+        const shareUrl = `${base}/impact-feed?focus=${post._id}`;
+        res.status(200).json({
+            success: true,
+            data: { sharesCount: post.sharesCount, shareUrl }
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Update impact post
+// @route   PUT /api/impact-posts/:id
+// @access  Private (NGO owner / Admin)
+exports.updateImpactPost = async (req, res) => {
+    try {
+        const post = await ImpactPost.findById(req.params.id);
+        if (!post || post.isDeleted) {
+            return res.status(404).json({ success: false, error: 'Post not found' });
+        }
+        const isOwner = post.ngo.toString() === req.user.id;
+        if (!isOwner && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, error: 'Not authorized to edit this post' });
+        }
+
+        const { title, description, hashtags, visibility, photos, taggedVolunteers } = req.body;
+        if (title?.trim()) post.title = title.trim();
+        if (description?.trim()) post.description = description.trim();
+        if (Array.isArray(hashtags)) post.hashtags = normalizeHashtags(hashtags);
+        if (visibility && ['public', 'community'].includes(visibility)) post.visibility = visibility;
+        if (Array.isArray(photos)) post.photos = photos.slice(0, 10);
+
+        if (Array.isArray(taggedVolunteers) && (post.event || post.eventInstance)) {
+            const checkedInSet = await getCheckedInVolunteerIds({
+                eventId: post.event || undefined,
+                eventInstanceId: post.eventInstance || undefined
+            });
+            const sanitizedTagged = [];
+            for (const volunteerId of taggedVolunteers) {
+                const vid = volunteerId.toString();
+                if (!checkedInSet.has(vid)) continue;
+                const volunteer = await User.findById(vid).select('allowStoryTagging role');
+                if (!volunteer || volunteer.role !== 'volunteer' || !volunteer.allowStoryTagging) continue;
+                sanitizedTagged.push(volunteerId);
+            }
+            post.taggedVolunteers = sanitizedTagged;
+        }
+
+        post.updatedAt = new Date();
+        await post.save();
+
+        const populated = await ImpactPost.findById(post._id)
+            .populate('ngo', 'name')
+            .populate('taggedVolunteers', 'name');
+        res.status(200).json({ success: true, data: populated });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Volunteer micro-story submission (pending NGO approval)
+// @route   POST /api/impact-posts/:id/contributions
+// @access  Private (checked-in volunteer)
+exports.addVolunteerContribution = async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text?.trim()) {
+            return res.status(400).json({ success: false, error: 'Contribution text is required' });
+        }
+
+        const post = await ImpactPost.findById(req.params.id);
+        if (!post || post.isDeleted) {
+            return res.status(404).json({ success: false, error: 'Post not found' });
+        }
+
+        if (req.user.role !== 'volunteer') {
+            return res.status(403).json({ success: false, error: 'Only volunteers can submit contributions' });
+        }
+
+        const checkedIn = await Attendance.exists({
+            volunteer: req.user.id,
+            status: 'checked-in',
+            ...(post.event ? { event: post.event } : { eventInstance: post.eventInstance })
+        });
+        if (!checkedIn) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only volunteers checked in on this mission can add a contribution'
+            });
+        }
+
+        post.volunteerContributions.push({
+            author: req.user.id,
+            text: text.trim(),
+            status: 'pending'
+        });
+        await post.save();
+
+        await Notification.create({
+            recipient: post.ngo,
+            sender: req.user.id,
+            impactPost: post._id,
+            type: 'impact_contribution_pending',
+            message: `${req.user.name} submitted a story addition for "${post.title}"`
+        });
+
+        res.status(201).json({ success: true, data: post.volunteerContributions });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Approve or reject volunteer contribution
+// @route   PUT /api/impact-posts/:id/contributions/:contributionId
+// @access  Private (NGO owner / Admin)
+exports.moderateVolunteerContribution = async (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!['approved', 'rejected'].includes(status)) {
+            return res.status(400).json({ success: false, error: 'Invalid status' });
+        }
+
+        const post = await ImpactPost.findById(req.params.id);
+        if (!post || post.isDeleted) {
+            return res.status(404).json({ success: false, error: 'Post not found' });
+        }
+        if (post.ngo.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, error: 'Not authorized' });
+        }
+
+        const contribution = post.volunteerContributions.id(req.params.contributionId);
+        if (!contribution) {
+            return res.status(404).json({ success: false, error: 'Contribution not found' });
+        }
+
+        contribution.status = status;
+        await post.save();
+
+        if (status === 'approved') {
+            await Notification.create({
+                recipient: contribution.author,
+                sender: req.user.id,
+                impactPost: post._id,
+                type: 'impact_contribution_approved',
+                message: `Your addition to "${post.title}" was approved and is now visible`
+            });
+        }
+
+        res.status(200).json({ success: true, data: contribution });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });
     }
@@ -521,7 +789,14 @@ exports.getVolunteerActivity = async (req, res) => {
 // @access  Private
 exports.getTrendingImpactPosts = async (req, res) => {
     try {
-        const posts = await ImpactPost.find({ isDeleted: false })
+        const query = { isDeleted: false };
+        if (req.user.role === 'volunteer') {
+            query.$and = [await buildVolunteerVisibilityFilter(req.user.id)];
+        } else if (req.user.role === 'ngo') {
+            query.$and = [buildNgoVisibilityFilter(req.user.id)];
+        }
+
+        const posts = await ImpactPost.find(query)
             .sort({ likesCount: -1, commentsCount: -1, createdAt: -1 })
             .limit(12)
             .populate('ngo', 'name')
@@ -542,7 +817,26 @@ exports.getOpenReports = async (req, res) => {
             .limit(100)
             .populate('reporter', 'name role')
             .lean();
-        res.status(200).json({ success: true, data: reports });
+
+        const enriched = await Promise.all(
+            reports.map(async (r) => {
+                let targetLabel = String(r.targetId);
+                let postId = r.targetType === 'impact_post' ? r.targetId.toString() : undefined;
+                if (r.targetType === 'impact_post') {
+                    const post = await ImpactPost.findById(r.targetId).select('title').lean();
+                    targetLabel = post?.title || targetLabel;
+                } else if (r.targetType === 'impact_comment') {
+                    const comment = await ImpactComment.findById(r.targetId).select('text post').lean();
+                    targetLabel = comment
+                        ? `Comment: ${comment.text.slice(0, 60)}`
+                        : targetLabel;
+                    if (comment?.post) postId = comment.post.toString();
+                }
+                return { ...r, targetLabel, postId };
+            })
+        );
+
+        res.status(200).json({ success: true, data: enriched });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });
     }
@@ -557,12 +851,58 @@ exports.resolveReport = async (req, res) => {
         if (!['resolved', 'dismissed'].includes(status)) {
             return res.status(400).json({ success: false, error: 'Invalid status' });
         }
-        const report = await ImpactReport.findByIdAndUpdate(
-            req.params.id,
-            { status },
-            { new: true }
-        );
+        const report = await ImpactReport.findById(req.params.id);
         if (!report) return res.status(404).json({ success: false, error: 'Report not found' });
+
+        report.status = status;
+        await report.save();
+
+        if (status === 'resolved') {
+            if (report.targetType === 'impact_post') {
+                const post = await ImpactPost.findById(report.targetId);
+                if (post && !post.isDeleted) {
+                    post.isDeleted = true;
+                    post.deletedAt = new Date();
+                    post.deletedBy = req.user.id;
+                    await post.save();
+                    await ImpactComment.updateMany(
+                        { post: post._id },
+                        {
+                            $set: {
+                                isDeleted: true,
+                                deletedAt: new Date(),
+                                deletedBy: req.user.id
+                            }
+                        }
+                    );
+                }
+            } else if (report.targetType === 'impact_comment') {
+                const comment = await ImpactComment.findById(report.targetId);
+                if (comment && !comment.isDeleted) {
+                    comment.isDeleted = true;
+                    comment.deletedAt = new Date();
+                    comment.deletedBy = req.user.id;
+                    await comment.save();
+                    const post = await ImpactPost.findById(comment.post);
+                    if (post && post.commentsCount > 0) {
+                        post.commentsCount -= 1;
+                        await post.save();
+                    }
+                }
+            }
+
+            await recordAudit({
+                actor: req.user,
+                action: 'impact_content_flagged',
+                targetType: report.targetType,
+                targetId: report.targetId,
+                payload: {
+                    reportId: report._id.toString(),
+                    moderation: 'resolved_auto_hidden'
+                }
+            });
+        }
+
         res.status(200).json({ success: true, data: report });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });

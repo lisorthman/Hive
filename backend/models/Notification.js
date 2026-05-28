@@ -31,7 +31,9 @@ const NotificationSchema = new mongoose.Schema({
             'promoted_from_waitlist',
             'impact_story_tagged',
             'impact_story_liked',
-            'impact_story_commented'
+            'impact_story_commented',
+            'impact_contribution_pending',
+            'impact_contribution_approved'
         ],
         default: 'volunteer_joined'
     },

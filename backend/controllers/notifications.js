@@ -17,6 +17,10 @@ exports.getNotifications = async (req, res) => {
             .populate({
                 path: 'event',
                 select: 'title'
+            })
+            .populate({
+                path: 'impactPost',
+                select: 'title'
             });
 
         res.status(200).json({

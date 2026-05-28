@@ -42,10 +42,23 @@ const impactPostSchema = new mongoose.Schema({
     sharesCount: { type: Number, default: 0 },
     savesCount: { type: Number, default: 0 },
     reportsCount: { type: Number, default: 0 },
+    volunteerContributions: [{
+        author: { type: mongoose.Schema.ObjectId, ref: 'User', required: true },
+        text: { type: String, required: true, trim: true, maxlength: 2000 },
+        status: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending'
+        },
+        createdAt: { type: Date, default: Date.now }
+    }],
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
     deletedBy: { type: mongoose.Schema.ObjectId, ref: 'User', default: null },
-    createdAt: { type: Date, default: Date.now }
+    updatedAt: { type: Date, default: Date.now }
+},
+{
+    timestamps: false
 });
 
 impactPostSchema.index({ createdAt: -1 });

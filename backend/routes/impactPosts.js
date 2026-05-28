@@ -15,7 +15,11 @@ const {
     getOpenReports,
     resolveReport,
     uploadImpactPhotos,
-    getTaggableVolunteers
+    getTaggableVolunteers,
+    getSavedImpactPosts,
+    updateImpactPost,
+    addVolunteerContribution,
+    moderateVolunteerContribution
 } = require('../controllers/impactPosts');
 const { protect, authorize, requireVerifiedNgoOrAdmin } = require('../middleware/auth');
 const uploadImpactMedia = require('../middleware/uploadImpactMedia');
@@ -33,6 +37,7 @@ router.get(
 router.get('/activity/:volunteerId', protect, getVolunteerActivity);
 router.get('/reports/open', protect, authorize('admin'), getOpenReports);
 router.put('/reports/:id', protect, authorize('admin'), resolveReport);
+router.get('/saved/list', protect, getSavedImpactPosts);
 router.get('/:id', protect, getImpactPost);
 
 router.post('/draft-from-event/:eventId', protect, requireVerifiedNgoOrAdmin, generateDraftFromEvent);
@@ -44,6 +49,14 @@ router.post(
     uploadImpactPhotos
 );
 router.post('/', protect, requireVerifiedNgoOrAdmin, createImpactPost);
+router.put('/:id', protect, requireVerifiedNgoOrAdmin, updateImpactPost);
+router.post('/:id/contributions', protect, addVolunteerContribution);
+router.put(
+    '/:id/contributions/:contributionId',
+    protect,
+    requireVerifiedNgoOrAdmin,
+    moderateVolunteerContribution
+);
 router.post('/:id/like', protect, likeImpactPost);
 router.delete('/:id/like', protect, unlikeImpactPost);
 router.post('/:id/save', protect, saveImpactPost);

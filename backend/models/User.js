@@ -69,6 +69,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    savedImpactPosts: [{
+        type: mongoose.Schema.ObjectId,
+        ref: 'ImpactPost'
+    }],
     emailVerified: {
         type: Boolean,
         default: function () {
