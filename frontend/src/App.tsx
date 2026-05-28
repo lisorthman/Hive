@@ -18,6 +18,7 @@ import ImpactResume from './pages/dashboard/ImpactResume'
 import NGOProfile from './pages/ngo/NGOProfile'
 import NGOMissionHub from './pages/ngo/NGOMissionHub'
 import VolunteerInsight from './pages/ngo/VolunteerInsight'
+import ImpactFeed from './pages/impact/ImpactFeed'
 
 function App() {
   return (
@@ -50,6 +51,11 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/discovery" element={<EventDiscovery />} />
+        <Route path="/impact-feed" element={
+          <ProtectedRoute allowedRoles={['volunteer', 'ngo', 'admin']}>
+            <ImpactFeed />
+          </ProtectedRoute>
+        } />
         <Route path="/ngo/:id" element={<NGOProfile />} />
         <Route path="/event/:id" element={<EventDetail />} />
         <Route path="/instance/:id" element={<EventDetail />} />
