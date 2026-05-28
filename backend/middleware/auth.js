@@ -62,3 +62,31 @@ exports.authorize = (...roles) => {
         next();
     };
 };
+
+exports.requireVerifiedNgoOrAdmin = (req, res, next) => {
+    if (req.user.role === 'admin') return next();
+    if (req.user.role !== 'ngo') {
+        return res.status(403).json({ success: false, error: 'Only NGOs can perform this action' });
+    }
+    if (req.user.verificationStatus !== 'verified') {
+        return res.status(403).json({
+            success: false,
+            error: 'Only verified NGOs can publish impact stories'
+        });
+    }
+    next();
+};
+
+exports.requireVerifiedVolunteerOrAdmin = async (req, res, next) => {
+    if (req.user.role === 'admin') return next();
+    if (req.user.role !== 'volunteer') {
+        return res.status(403).json({ success: false, error: 'Only volunteers can perform this action' });
+    }
+    if (!req.user.emailVerified) {
+        return res.status(403).json({
+            success: false,
+            error: 'Verify your email before participating in community feed actions'
+        });
+    }
+    next();
+};
