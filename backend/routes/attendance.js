@@ -6,6 +6,7 @@ const {
     checkInVolunteer,
     getMyAttendanceStatus,
     getVolunteerStats,
+    getVolunteerStatsForOrg,
     getLeaderboard
 } = require('../controllers/attendance');
 
@@ -15,6 +16,12 @@ const { protect, authorize } = require('../middleware/auth');
 
 // Volunteer / Public authenticated routes
 router.get('/my-stats', protect, authorize('volunteer', 'admin'), getVolunteerStats);
+router.get(
+    '/volunteer/:volunteerId/summary',
+    protect,
+    authorize('ngo', 'admin'),
+    getVolunteerStatsForOrg
+);
 router.get('/leaderboard', protect, getLeaderboard);
 router.post('/event/:eventId/check-in', protect, authorize('volunteer', 'admin'), checkInVolunteer);
 router.get('/event/:eventId/my-status', protect, getMyAttendanceStatus);

@@ -190,6 +190,7 @@ function calcLevel(score) {
 
 function calcBadges(joinedCount, checkedInCount, totalHours, categories) {
     const badges = [];
+    const categorySet = categories instanceof Set ? categories : new Set(categories || []);
 
     // ── Milestone: First Contact ───────────────────────────────────────────
     if (joinedCount >= 1) badges.push({
@@ -263,32 +264,32 @@ function calcBadges(joinedCount, checkedInCount, totalHours, categories) {
     });
 
     // ── Category Badges ────────────────────────────────────────────────────
-    if (categories.has('Environmental')) badges.push({
+    if (categorySet.has('Environmental')) badges.push({
         id: 'eco_warrior', name: 'Eco Warrior',
         description: 'Completed a verified Environmental mission',
         icon: 'Leaf', color: 'green'
     });
-    if (categories.has('Social Work')) badges.push({
+    if (categorySet.has('Social Work')) badges.push({
         id: 'social_champion', name: 'Social Champion',
         description: 'Completed a verified Social Work mission',
         icon: 'Users', color: 'pink'
     });
-    if (categories.has('Education')) badges.push({
+    if (categorySet.has('Education')) badges.push({
         id: 'scholar', name: 'Scholar',
         description: 'Completed a verified Education mission',
         icon: 'BookOpen', color: 'teal'
     });
-    if (categories.has('Animal Welfare')) badges.push({
+    if (categorySet.has('Animal Welfare')) badges.push({
         id: 'animal_guardian', name: 'Animal Guardian',
         description: 'Completed a verified Animal Welfare mission',
         icon: 'Heart', color: 'rose'
     });
-    if (categories.has('Disaster Relief')) badges.push({
+    if (categorySet.has('Disaster Relief')) badges.push({
         id: 'first_responder', name: 'First Responder',
         description: 'Completed a verified Disaster Relief mission',
         icon: 'AlertTriangle', color: 'red'
     });
-    if (categories.has('Healthcare')) badges.push({
+    if (categorySet.has('Healthcare')) badges.push({
         id: 'healer', name: 'Healer',
         description: 'Completed a verified Healthcare mission',
         icon: 'Activity', color: 'blue'
@@ -303,7 +304,9 @@ function calcBadges(joinedCount, checkedInCount, totalHours, categories) {
 // @access  Private (Volunteer)
 exports.getVolunteerStats = async (req, res) => {
     try {
-        const allRecords = await Attendance.find({ volunteer: req.user.id }).populate('event');
+        const allRecords = await Attendance.find({ volunteer: req.user.id })
+            .populate('event', 'title date category ngoName')
+            .populate('eventInstance', 'title date category ngoName');
         
         const checkedIn = allRecords.filter(r => r.status === 'checked-in');
         const totalHours = checkedIn.reduce((sum, r) => sum + r.hoursWorked, 0);
@@ -315,10 +318,30 @@ exports.getVolunteerStats = async (req, res) => {
 
         // Categories from checked-in events only
         const checkedInCategories = new Set(
-            checkedIn.filter(r => r.event).map(r => r.event.category)
+            checkedIn
+                .map((r) => r.event?.category || r.eventInstance?.category)
+                .filter(Boolean)
         );
 
         const badges = calcBadges(joinedCount, checkedInCount, totalHours, checkedInCategories);
+
+        const recentHistory = checkedIn
+            .map((record) => {
+                const mission = record.event || record.eventInstance;
+                return {
+                    attendanceId: record._id,
+                    missionType: record.eventInstance ? 'instance' : 'event',
+                    missionId: mission?._id || null,
+                    title: mission?.title || 'Mission',
+                    ngoName: mission?.ngoName || '',
+                    category: mission?.category || 'Other',
+                    date: mission?.date || record.createdAt,
+                    status: record.status,
+                    hoursWorked: record.hoursWorked || 0
+                };
+            })
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 10);
 
         // Next badge hints
         const nextMilestones = [];
@@ -346,7 +369,91 @@ exports.getVolunteerStats = async (req, res) => {
                 level,
                 pointsToNextLevel,
                 badges,
-                nextMilestones
+                nextMilestones,
+                recentHistory
+            }
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Get volunteer stats for NGO/admin view
+// @route   GET /api/attendance/volunteer/:volunteerId/summary
+// @access  Private (NGO/Admin)
+exports.getVolunteerStatsForOrg = async (req, res) => {
+    try {
+        const { volunteerId } = req.params;
+        const volunteer = await User.findById(volunteerId).select(
+            'name email bio interests skills availability role'
+        );
+
+        if (!volunteer || volunteer.role !== 'volunteer') {
+            return res.status(404).json({ success: false, error: 'Volunteer not found' });
+        }
+
+        if (req.user.role === 'ngo') {
+            const orgEvents = await Event.find({ organization: req.user.id }).select('_id');
+            const orgEventIds = orgEvents.map((e) => e._id);
+            const relatedToOrg = await Event.exists({
+                _id: { $in: orgEventIds },
+                $or: [{ volunteersJoined: volunteerId }, { waitlist: volunteerId }]
+            });
+
+            if (!relatedToOrg) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'You can only view volunteers associated with your missions'
+                });
+            }
+        }
+
+        const attendance = await Attendance.find({ volunteer: volunteerId })
+            .populate('event', 'title date category ngoName')
+            .populate('eventInstance', 'title date category ngoName');
+        const joinedCount = attendance.filter((a) => a.status === 'joined').length;
+        const checkedInCount = attendance.filter((a) => a.status === 'checked-in').length;
+        const totalHours = attendance.reduce((sum, a) => sum + (a.hoursWorked || 0), 0);
+        const score = calcScore(joinedCount, checkedInCount, totalHours);
+        const level = calcLevel(score);
+        const badges = calcBadges(
+            joinedCount,
+            checkedInCount,
+            totalHours,
+            volunteer.interests || []
+        );
+        const recentHistory = attendance
+            .filter((a) => a.status === 'checked-in')
+            .map((record) => {
+                const mission = record.event || record.eventInstance;
+                return {
+                    attendanceId: record._id,
+                    missionType: record.eventInstance ? 'instance' : 'event',
+                    missionId: mission?._id || null,
+                    title: mission?.title || 'Mission',
+                    ngoName: mission?.ngoName || '',
+                    category: mission?.category || 'Other',
+                    date: mission?.date || record.createdAt,
+                    status: record.status,
+                    hoursWorked: record.hoursWorked || 0
+                };
+            })
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 20);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                profile: volunteer,
+                stats: {
+                    joinedCount,
+                    checkedInCount,
+                    totalHours,
+                    score,
+                    level,
+                    badges,
+                    recentHistory
+                }
             }
         });
     } catch (err) {
