@@ -22,6 +22,7 @@ import 'leaflet/dist/leaflet.css';
 import { cn } from '../../lib/utils';
 import { eventService } from '../../lib/events';
 import { authService } from '../../lib/auth';
+import { missionPath } from '../../lib/missions';
 
 const CATEGORIES = ["All", "Environmental", "Social Work", "Education", "Healthcare", "Disaster Relief"];
 
@@ -286,7 +287,7 @@ export default function EventDiscovery() {
                                                         navigate('/register', { state: { role: 'volunteer' } });
                                                         return;
                                                     }
-                                                    navigate(`/event/${event._id}`);
+                                                    navigate(missionPath(event));
                                                 }}
                                             >
                                                 {isJoined ? "View Mission" : "View Detail"}
@@ -335,7 +336,7 @@ function DiscoveryEventCard({
             navigate('/register', { state: { role: 'volunteer' } });
             return;
         }
-        navigate(`/event/${event._id}`);
+        navigate(missionPath(event));
     };
 
     return (
@@ -345,6 +346,11 @@ function DiscoveryEventCard({
                     <div>
                         <div className="flex gap-2 mb-2 flex-wrap">
                             <Badge variant="primary" className="text-[10px] py-0 px-2">{event.category}</Badge>
+                            {event.missionType === 'instance' && (
+                                <Badge variant="secondary" className="text-[10px] py-0 px-2 bg-violet-50 text-violet-700 border-violet-100">
+                                    Recurring
+                                </Badge>
+                            )}
                             {isJoined && (
                                 <Badge variant="primary" className="bg-hive-primary text-white border-none text-[10px] py-0 px-2">Joined</Badge>
                             )}

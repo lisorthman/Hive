@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CalendarDays, List } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { missionPath } from '../../lib/missions';
 import { Button } from '../ui/Button';
 
 type CalendarEvent = {
@@ -278,7 +279,7 @@ export function VolunteerMissionCalendar({ joinedEvents, waitlistedEvents = [] }
                                 <li key={ev._id}>
                                     <button
                                         type="button"
-                                        onClick={() => navigate(`/event/${ev._id}`)}
+                                        onClick={() => navigate(missionPath(ev))}
                                         className="w-full text-left p-2 rounded-lg bg-white border border-slate-100 hover:border-hive-primary/30 transition-colors"
                                     >
                                         <p className="text-xs font-bold text-slate-900 line-clamp-2">
