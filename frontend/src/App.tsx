@@ -17,6 +17,7 @@ import Leaderboard from './pages/discovery/Leaderboard'
 import ImpactResume from './pages/dashboard/ImpactResume'
 import NGOProfile from './pages/ngo/NGOProfile'
 import NGOMissionHub from './pages/ngo/NGOMissionHub'
+import VolunteerInsight from './pages/ngo/VolunteerInsight'
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
         <Route path="/discovery" element={<EventDiscovery />} />
         <Route path="/ngo/:id" element={<NGOProfile />} />
         <Route path="/event/:id" element={<EventDetail />} />
+        <Route path="/instance/:id" element={<EventDetail />} />
         <Route path="/ngo-create" element={
           <ProtectedRoute allowedRoles={['ngo', 'admin']}>
             <EventForm />
@@ -79,6 +81,11 @@ function App() {
         <Route path="/ngo-attendance/:id" element={
           <ProtectedRoute allowedRoles={['ngo', 'admin']}>
             <AttendanceManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/ngo-volunteer/:volunteerId" element={
+          <ProtectedRoute allowedRoles={['ngo', 'admin']}>
+            <VolunteerInsight />
           </ProtectedRoute>
         } />
         <Route path="/check-in/:id" element={

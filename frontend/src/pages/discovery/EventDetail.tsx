@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
     Calendar,
     Clock,
@@ -28,7 +28,11 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import '../../lib/leafletIcon';
 import 'leaflet/dist/leaflet.css';
 import { eventService } from '../../lib/events';
+import { instanceService } from '../../lib/instances';
+import { seriesService } from '../../lib/series';
 import { authService } from '../../lib/auth';
+import type { ParticipationState } from '../../lib/missions';
+import { ShiftSlotPicker } from '../../components/event/ShiftSlotPicker';
 import { attendanceService } from '../../lib/attendance';
 import { cn } from '../../lib/utils';
 import { EventReviewsSection } from '../../components/event/EventReviewsSection';
@@ -38,10 +42,16 @@ import { EventDiscussionSection } from '../../components/event/EventDiscussionSe
 export default function EventDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
+    const isInstance = location.pathname.startsWith('/instance/');
     const [event, setEvent] = useState<any>(null);
+    const [seriesDates, setSeriesDates] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [membership, setMembership] = useState<'none' | 'joined' | 'waitlisted'>('none');
+    const [participation, setParticipation] = useState<ParticipationState | null>(null);
+    const [selectedShiftSlotId, setSelectedShiftSlotId] = useState<string | null>(null);
+    const [activeShiftSlotId, setActiveShiftSlotId] = useState<string | null>(null);
     const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
     const [isFull, setIsFull] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
@@ -49,12 +59,30 @@ export default function EventDetail() {
     const [alertMessage, setAlertMessage] = useState("");
     const [canReview, setCanReview] = useState(false);
 
+    const applyParticipation = (p: ParticipationState, data: any) => {
+        setParticipation(p);
+        setMembership(p.membership);
+        setWaitlistPosition(p.waitlistPosition ?? null);
+        if (p.useShiftSlots && p.shiftSlots?.length) {
+            const joined = p.shiftSlots.find((s) => s.membership === 'joined');
+            const waitlisted = p.shiftSlots.find((s) => s.membership === 'waitlisted');
+            const active = joined || waitlisted;
+            setActiveShiftSlotId(active?.slotId ?? null);
+            if (active) setSelectedShiftSlotId(active.slotId);
+            setIsFull(false);
+        } else {
+            setIsFull(p.isFull ?? (data.volunteersJoined?.length || 0) >= data.capacity);
+        }
+    };
+
     useEffect(() => {
         const fetchEvent = async () => {
             if (!id) return;
             try {
                 setIsLoading(true);
-                const data = await eventService.getEvent(id);
+                const data = isInstance
+                    ? await instanceService.getInstance(id)
+                    : await eventService.getEvent(id);
                 setEvent(data);
 
                 const currentUser = authService.getCurrentUser();
@@ -62,21 +90,55 @@ export default function EventDetail() {
                     (data.volunteersJoined?.length || 0) >= data.capacity
                 );
 
+                if (data.series?._id) {
+                    try {
+                        const instances = await seriesService.getSeriesInstances(
+                            data.series._id
+                        );
+                        setSeriesDates(instances);
+                    } catch {
+                        setSeriesDates([]);
+                    }
+                }
+
                 if (currentUser?.id && id) {
                     try {
-                        const participation = await eventService.getEventParticipation(id);
-                        setMembership(participation.membership);
-                        setWaitlistPosition(participation.waitlistPosition);
-                        setIsFull(participation.isFull);
+                        const p = isInstance
+                            ? await instanceService.getParticipation(id)
+                            : await eventService.getEventParticipation(id);
+                        applyParticipation(p, data);
                     } catch {
                         setMembership('none');
                     }
-                    try {
-                        const status = await attendanceService.getMyAttendanceStatus(id);
-                        setCanReview(!!status.canReview);
-                    } catch {
+                    if (!isInstance) {
+                        try {
+                            const status = await attendanceService.getMyAttendanceStatus(id);
+                            setCanReview(!!status.canReview);
+                        } catch {
+                            setCanReview(false);
+                        }
+                    } else {
                         setCanReview(false);
                     }
+                } else if (data.useShiftSlots && data.shiftSlots?.length) {
+                    setParticipation({
+                        membership: 'none',
+                        useShiftSlots: true,
+                        shiftSlots: data.shiftSlots.map((s: any) => ({
+                            slotId: s._id,
+                            label: s.label,
+                            startTime: s.startTime,
+                            endTime: s.endTime,
+                            capacity: s.capacity,
+                            joined: s.volunteersJoined?.length || 0,
+                            membership: 'none',
+                            waitlistPosition: null,
+                            spotsLeft: Math.max(
+                                0,
+                                s.capacity - (s.volunteersJoined?.length || 0)
+                            )
+                        }))
+                    });
                 }
             } catch (err: any) {
                 setError(err.message);
@@ -86,7 +148,7 @@ export default function EventDetail() {
         };
 
         fetchEvent();
-    }, [id]);
+    }, [id, isInstance]);
 
     useEffect(() => {
         if (isLoading || !event) return;
@@ -103,9 +165,16 @@ export default function EventDetail() {
 
     const handleJoin = async () => {
         if (!event || !id) return;
+        if (event.useShiftSlots && !selectedShiftSlotId) {
+            setError('Please select a shift time slot');
+            return;
+        }
         setIsJoining(true);
+        setError(null);
         try {
-            const result = await eventService.joinEvent(id);
+            const result = isInstance
+                ? await instanceService.joinInstance(id, selectedShiftSlotId || undefined)
+                : await eventService.joinEvent(id, selectedShiftSlotId || undefined);
             if (result.membership === 'waitlisted') {
                 setMembership('waitlisted');
                 setWaitlistPosition(result.waitlistPosition ?? null);
@@ -115,12 +184,24 @@ export default function EventDetail() {
                 );
             } else {
                 setMembership('joined');
-                setAlertMessage("You've successfully joined the mission!");
+                setAlertMessage(
+                    isInstance
+                        ? "You're RSVP'd for this date!"
+                        : "You've successfully joined the mission!"
+                );
             }
             setShowAlert(true);
-            const updatedEvent = await eventService.getEvent(id);
+            const updatedEvent = isInstance
+                ? await instanceService.getInstance(id)
+                : await eventService.getEvent(id);
             setEvent(updatedEvent);
-            setIsFull((updatedEvent.volunteersJoined?.length || 0) >= updatedEvent.capacity);
+            const currentUser = authService.getCurrentUser();
+            if (currentUser?.id) {
+                const p = isInstance
+                    ? await instanceService.getParticipation(id)
+                    : await eventService.getEventParticipation(id);
+                applyParticipation(p, updatedEvent);
+            }
             setTimeout(() => setShowAlert(false), 5000);
         } catch (err: any) {
             setError(err.message);
@@ -139,9 +220,14 @@ export default function EventDetail() {
 
         setIsJoining(true);
         try {
-            const result = await eventService.leaveEvent(id);
+            const slotToLeave = activeShiftSlotId || selectedShiftSlotId || undefined;
+            const result = isInstance
+                ? await instanceService.leaveInstance(id, slotToLeave)
+                : await eventService.leaveEvent(id, slotToLeave);
             setMembership('none');
             setWaitlistPosition(null);
+            setActiveShiftSlotId(null);
+            setSelectedShiftSlotId(null);
             setAlertMessage(
                 result.message ||
                     (membership === 'waitlisted'
@@ -149,9 +235,11 @@ export default function EventDetail() {
                         : 'You have left the mission.')
             );
             setShowAlert(true);
-            const updatedEvent = await eventService.getEvent(id);
+            const updatedEvent = isInstance
+                ? await instanceService.getInstance(id)
+                : await eventService.getEvent(id);
             setEvent(updatedEvent);
-            setIsFull((updatedEvent.volunteersJoined?.length || 0) >= updatedEvent.capacity);
+            setParticipation(null);
             setTimeout(() => setShowAlert(false), 5000);
         } catch (err: any) {
             setError(err.message);
@@ -162,6 +250,20 @@ export default function EventDetail() {
 
     const hasJoined = membership === 'joined';
     const onWaitlist = membership === 'waitlisted';
+    const shiftSlotsForPicker =
+        participation?.shiftSlots ||
+        event?.shiftSlots?.map((s: any) => ({
+            slotId: s._id,
+            label: s.label,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            capacity: s.capacity,
+            joined: s.volunteersJoined?.length || 0,
+            membership: 'none' as const,
+            waitlistPosition: null,
+            spotsLeft: Math.max(0, s.capacity - (s.volunteersJoined?.length || 0))
+        })) ||
+        [];
 
     if (isLoading) {
         return (
@@ -257,7 +359,16 @@ export default function EventDetail() {
                         <section className="space-y-4">
                             <div className="flex flex-wrap gap-2">
                                 <Badge variant="primary" className="px-3 py-1 font-bold">{event.category}</Badge>
-                                <Badge variant="secondary" className="px-3 py-1 font-bold bg-teal-50 text-teal-700 border-teal-100">Featured Mission</Badge>
+                                {isInstance && (
+                                    <Badge variant="secondary" className="px-3 py-1 font-bold bg-violet-50 text-violet-700 border-violet-100">
+                                        Recurring · RSVP this date
+                                    </Badge>
+                                )}
+                                {event.useShiftSlots && (
+                                    <Badge variant="secondary" className="px-3 py-1 font-bold bg-sky-50 text-sky-700 border-sky-100">
+                                        Shift slots
+                                    </Badge>
+                                )}
                             </div>
                             <h1 className="text-3xl sm:text-4xl font-black text-hive-text-primary leading-tight">
                                 {event.title}
@@ -320,6 +431,50 @@ export default function EventDetail() {
                             </div>
                         </section>
 
+                        {event.useShiftSlots && shiftSlotsForPicker.length > 0 && (
+                            <section className="space-y-3">
+                                <h2 className="text-xl font-bold">Shift times</h2>
+                                <ShiftSlotPicker
+                                    slots={shiftSlotsForPicker}
+                                    selectedSlotId={selectedShiftSlotId}
+                                    onSelect={setSelectedShiftSlotId}
+                                    disabled={hasJoined || onWaitlist}
+                                />
+                            </section>
+                        )}
+
+                        {isInstance && seriesDates.length > 1 && (
+                            <section className="space-y-3">
+                                <h2 className="text-xl font-bold">Other dates in this series</h2>
+                                <div className="flex flex-wrap gap-2">
+                                    {seriesDates.map((inst: any) => {
+                                        const instId = inst._id;
+                                        const isCurrent = instId === id;
+                                        const d = new Date(inst.date).toLocaleDateString(undefined, {
+                                            month: 'short',
+                                            day: 'numeric'
+                                        });
+                                        return (
+                                            <button
+                                                key={instId}
+                                                type="button"
+                                                disabled={isCurrent}
+                                                onClick={() => navigate(`/instance/${instId}`)}
+                                                className={cn(
+                                                    'px-3 py-2 rounded-lg text-sm font-bold border',
+                                                    isCurrent
+                                                        ? 'border-hive-primary bg-hive-primary/10 text-hive-primary'
+                                                        : 'border-slate-200 hover:border-hive-primary/40'
+                                                )}
+                                            >
+                                                {d}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        )}
+
                         {/* Description Section */}
                         <section className="space-y-6">
                             <CardContent className="p-6 space-y-4">
@@ -371,13 +526,16 @@ export default function EventDetail() {
                             </div>
                         </section>
 
+                        {!isInstance && (
                         <div id="mission-discussion">
                             <EventDiscussionSection
                                 eventId={id!}
                                 canComment={hasJoined || !!isOwner}
                             />
                         </div>
+                        )}
 
+                        {!isInstance && (
                         <div id="mission-reviews">
                             <EventReviewsSection
                                 eventId={id!}
@@ -389,6 +547,7 @@ export default function EventDetail() {
                                 }
                             />
                         </div>
+                        )}
                     </div>
 
                     {/* Sidebar / CTA (Right) */}
@@ -455,18 +614,25 @@ export default function EventDetail() {
                                                     className="w-full py-6 font-bold text-lg rounded-xl shadow-hive group"
                                                     isLoading={isJoining}
                                                     onClick={handleJoin}
-                                                    disabled={hasJoined || onWaitlist}
+                                                    disabled={
+                                                        hasJoined ||
+                                                        onWaitlist ||
+                                                        (event.useShiftSlots &&
+                                                            !selectedShiftSlotId &&
+                                                            !hasJoined)
+                                                    }
                                                 >
                                                     {hasJoined ? (
                                                         <div className="flex items-center gap-2">
-                                                            <CheckCircle2 className="h-5 w-5" /> Already Joined
+                                                            <CheckCircle2 className="h-5 w-5" />{' '}
+                                                            {isInstance ? 'RSVP confirmed' : 'Already Joined'}
                                                         </div>
                                                     ) : onWaitlist ? (
                                                         `On waitlist (#${waitlistPosition})`
-                                                    ) : isFull ? (
+                                                    ) : isFull && !event.useShiftSlots ? (
                                                         'Join Waitlist'
                                                     ) : (
-                                                        'Join Mission'
+                                                        isInstance ? 'RSVP for this date' : 'Join Mission'
                                                     )}
                                                 </Button>
 
