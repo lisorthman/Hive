@@ -264,7 +264,7 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
     try {
-        const allowed = ['name', 'bio', 'interests', 'skills', 'availability'];
+        const allowed = ['name', 'bio', 'interests', 'skills', 'availability', 'allowStoryTagging'];
         const updates = {};
         for (const key of allowed) {
             if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -305,7 +305,8 @@ const sendTokenResponse = (user, statusCode, res) => {
             interests: user.interests,
             skills: user.skills,
             availability: user.availability,
-            bio: user.bio
+            bio: user.bio,
+            allowStoryTagging: user.allowStoryTagging
         }
     });
 };
