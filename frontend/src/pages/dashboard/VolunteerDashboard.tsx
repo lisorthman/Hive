@@ -21,6 +21,7 @@ import { cn } from '../../lib/utils';
 import { motion } from 'framer-motion';
 import { authService } from '../../lib/auth';
 import { eventService } from '../../lib/events';
+import { missionPath } from '../../lib/missions';
 import { attendanceService } from '../../lib/attendance';
 import { NotificationDropdown } from '../../components/notifications/NotificationDropdown';
 import { VolunteerMissionCalendar } from '../../components/calendar/VolunteerMissionCalendar';
@@ -226,7 +227,7 @@ export default function VolunteerDashboard() {
                                                 ngo={event.ngoName}
                                                 date={new Date(event.date).toLocaleDateString()}
                                                 hours="4h"
-                                                onClick={() => navigate(`/event/${event._id}`)}
+                                                onClick={() => navigate(missionPath(event))}
                                                 isJoined={joinedIds.has(event._id)}
                                             />
                                             {event.matchReasons?.length > 0 && (
@@ -257,7 +258,7 @@ export default function VolunteerDashboard() {
                                                 ngo={event.ngoName}
                                                 date={`${new Date(event.date).toLocaleDateString()} • 09:00 AM`}
                                                 status="Confirmed"
-                                                onClick={() => navigate(`/event/${event._id}`)}
+                                                onClick={() => navigate(missionPath(event))}
                                             />
                                         ))
                                     ) : (
@@ -267,6 +268,44 @@ export default function VolunteerDashboard() {
                                             </div>
                                             <p className="text-hive-text-secondary">You haven't joined any missions yet.</p>
                                             <Button variant="outline" size="sm" onClick={() => navigate('/discovery')}>Discover Missions</Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+                        </section>
+
+                        <section className="space-y-6">
+                            <h3 className="text-xl font-bold">Your Previous Volunteering</h3>
+                            <Card padding="none">
+                                <div className="divide-y divide-slate-50">
+                                    {stats.recentHistory?.length ? (
+                                        stats.recentHistory.map((item: any) => (
+                                            <div
+                                                key={item.attendanceId}
+                                                className="p-4 sm:p-5 flex items-center justify-between gap-4"
+                                            >
+                                                <div>
+                                                    <p className="text-sm font-bold text-hive-text-primary">
+                                                        {item.title}
+                                                    </p>
+                                                    <p className="text-xs text-hive-text-secondary">
+                                                        {new Date(item.date).toLocaleDateString()} · {item.category}
+                                                        {item.ngoName ? ` · ${item.ngoName}` : ''}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+                                                        {item.status}
+                                                    </p>
+                                                    <p className="text-xs text-hive-text-secondary">
+                                                        {item.hoursWorked}h
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-8 text-center text-hive-text-secondary text-sm">
+                                            No completed volunteering records yet.
                                         </div>
                                     )}
                                 </div>
@@ -285,7 +324,7 @@ export default function VolunteerDashboard() {
                                                 ngo={event.ngoName}
                                                 date={new Date(event.date).toLocaleDateString()}
                                                 status="Waitlist"
-                                                onClick={() => navigate(`/event/${event._id}`)}
+                                                onClick={() => navigate(missionPath(event))}
                                             />
                                         ))}
                                     </div>

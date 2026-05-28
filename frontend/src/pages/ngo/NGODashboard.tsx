@@ -15,7 +15,8 @@ import {
     CheckCircle2,
     Clock,
     UserCheck,
-    Download
+    Download,
+    UserX
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -43,6 +44,13 @@ export default function NGODashboard() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [reviewSummary, setReviewSummary] = useState<any>(null);
     const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+    const [isVolunteersModalOpen, setIsVolunteersModalOpen] = useState(false);
+    const [volunteerEvent, setVolunteerEvent] = useState<any>(null);
+    const [joinedVolunteers, setJoinedVolunteers] = useState<any[]>([]);
+    const [waitlistedVolunteers, setWaitlistedVolunteers] = useState<any[]>([]);
+    const [isLoadingVolunteers, setIsLoadingVolunteers] = useState(false);
+    const [isRemovingVolunteerId, setIsRemovingVolunteerId] = useState<string | null>(null);
+    const [removeMessage, setRemoveMessage] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const fetchEvents = async () => {
@@ -151,6 +159,55 @@ export default function NGODashboard() {
         } finally {
             setIsDeleting(false);
             setSelectedEventId(null);
+        }
+    };
+
+    const openVolunteersModal = async (event: any) => {
+        setVolunteerEvent(event);
+        setIsVolunteersModalOpen(true);
+        setRemoveMessage('');
+        setIsLoadingVolunteers(true);
+        try {
+            const data = await eventService.getEventVolunteers(event._id);
+            setJoinedVolunteers(data.joined || []);
+            setWaitlistedVolunteers(data.waitlisted || []);
+        } catch (error) {
+            console.error('Failed to fetch event volunteers:', error);
+            setJoinedVolunteers([]);
+            setWaitlistedVolunteers([]);
+        } finally {
+            setIsLoadingVolunteers(false);
+        }
+    };
+
+    const handleRemoveVolunteer = async (volunteerId: string) => {
+        if (!volunteerEvent) return;
+        if (!window.confirm('Remove this volunteer from the mission?')) return;
+
+        setIsRemovingVolunteerId(volunteerId);
+        try {
+            const data = await eventService.removeVolunteerFromEvent(
+                volunteerEvent._id,
+                volunteerId,
+                removeMessage
+            );
+            setJoinedVolunteers(data.joined || []);
+            setWaitlistedVolunteers(data.waitlisted || []);
+            setEvents((prev) =>
+                prev.map((e) =>
+                    e._id === volunteerEvent._id
+                        ? {
+                              ...e,
+                              volunteersJoined: data.joined || [],
+                              waitlist: data.waitlisted || []
+                          }
+                        : e
+                )
+            );
+        } catch (error) {
+            console.error('Failed to remove volunteer:', error);
+        } finally {
+            setIsRemovingVolunteerId(null);
         }
     };
 
@@ -263,8 +320,8 @@ export default function NGODashboard() {
                     <div className="flex flex-wrap gap-3">
                         <Button
                             variant="outline"
-                            size="lg"
-                            className="gap-2"
+                            size="sm"
+                            className="gap-2 h-9"
                             disabled={isDownloadingReport}
                             onClick={() => handleDownloadReport('csv')}
                         >
@@ -277,8 +334,8 @@ export default function NGODashboard() {
                         </Button>
                         <Button
                             variant="outline"
-                            size="lg"
-                            className="gap-2"
+                            size="sm"
+                            className="gap-2 h-9"
                             disabled={isDownloadingReport}
                             onClick={() => handleDownloadReport('pdf')}
                         >
@@ -435,6 +492,13 @@ export default function NGODashboard() {
                                                         <UserCheck className="h-4 w-4" />
                                                     </button>
                                                     <button
+                                                        onClick={() => openVolunteersModal(event)}
+                                                        className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all"
+                                                        title="Manage Volunteers"
+                                                    >
+                                                        <Users className="h-4 w-4" />
+                                                    </button>
+                                                    <button
                                                         onClick={() => navigate(`/event/${event._id}`)}
                                                         className="p-2 text-slate-400 hover:text-hive-primary hover:bg-hive-primary/5 rounded-lg transition-all"
                                                         title="View Details"
@@ -490,6 +554,117 @@ export default function NGODashboard() {
                             Delete Event
                         </Button>
                     </div>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={isVolunteersModalOpen}
+                onClose={() => setIsVolunteersModalOpen(false)}
+                title={volunteerEvent ? `Volunteers · ${volunteerEvent.title}` : 'Volunteers'}
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Message shown when removing volunteer
+                        </label>
+                        <textarea
+                            className="w-full mt-1 p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-hive-primary/20 outline-none resize-none"
+                            rows={2}
+                            value={removeMessage}
+                            onChange={(e) => setRemoveMessage(e.target.value)}
+                            placeholder="You were removed because..."
+                        />
+                    </div>
+
+                    {isLoadingVolunteers ? (
+                        <div className="py-10 flex items-center justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-hive-primary" />
+                        </div>
+                    ) : (
+                        <div className="space-y-5 max-h-[420px] overflow-auto pr-1">
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-900 mb-2">
+                                    Joined Volunteers ({joinedVolunteers.length})
+                                </h4>
+                                <div className="space-y-2">
+                                    {joinedVolunteers.length === 0 && (
+                                        <p className="text-xs text-slate-400">No joined volunteers yet.</p>
+                                    )}
+                                    {joinedVolunteers.map((v) => (
+                                        <div
+                                            key={v._id}
+                                            className="border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3"
+                                        >
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-900">{v.name}</p>
+                                                <p className="text-xs text-slate-500">{v.email}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => navigate(`/ngo-volunteer/${v._id}`)}
+                                                >
+                                                    View dashboard
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                                                    onClick={() => handleRemoveVolunteer(v._id)}
+                                                    isLoading={isRemovingVolunteerId === v._id}
+                                                >
+                                                    <UserX className="h-4 w-4 mr-1" />
+                                                    Remove
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-900 mb-2">
+                                    Waitlisted Volunteers ({waitlistedVolunteers.length})
+                                </h4>
+                                <div className="space-y-2">
+                                    {waitlistedVolunteers.length === 0 && (
+                                        <p className="text-xs text-slate-400">No waitlisted volunteers.</p>
+                                    )}
+                                    {waitlistedVolunteers.map((v) => (
+                                        <div
+                                            key={v._id}
+                                            className="border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3"
+                                        >
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-900">{v.name}</p>
+                                                <p className="text-xs text-slate-500">{v.email}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => navigate(`/ngo-volunteer/${v._id}`)}
+                                                >
+                                                    View dashboard
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                                                    onClick={() => handleRemoveVolunteer(v._id)}
+                                                    isLoading={isRemovingVolunteerId === v._id}
+                                                >
+                                                    <UserX className="h-4 w-4 mr-1" />
+                                                    Remove
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </Modal>
         </div>
