@@ -96,6 +96,8 @@ export const authService = {
             skills: data.data.skills,
             availability: data.data.availability,
             bio: data.data.bio
+            ,
+            allowStoryTagging: data.data.allowStoryTagging
         };
         localStorage.setItem('user', JSON.stringify(user));
         return user;
@@ -107,6 +109,7 @@ export const authService = {
         interests?: string[];
         skills?: string[];
         availability?: string;
+        allowStoryTagging?: boolean;
     }) {
         const response = await fetch(`${API_URL}/auth/profile`, {
             method: 'PUT',
@@ -125,6 +128,8 @@ export const authService = {
             skills: data.data.skills,
             availability: data.data.availability,
             bio: data.data.bio
+            ,
+            allowStoryTagging: data.data.allowStoryTagging
         };
         localStorage.setItem('user', JSON.stringify(user));
         return user;

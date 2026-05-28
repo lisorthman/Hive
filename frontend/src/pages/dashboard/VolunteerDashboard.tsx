@@ -11,7 +11,8 @@ import {
     MoreVertical,
     TrendingUp,
     LogOut,
-    Loader2
+    Loader2,
+    Sparkles
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -163,6 +164,9 @@ export default function VolunteerDashboard() {
                             </Button>
                             <Button size="sm" className="gap-2 font-bold" onClick={() => navigate('/discovery')}>
                                 <Search className="h-4 w-4" /> Find Events
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/impact-feed')}>
+                                <Sparkles className="h-4 w-4" /> Impact Feed
                             </Button>
                         </div>
                     </motion.div>

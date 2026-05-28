@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/Input';
 import { Alert } from '../../components/ui/Alert';
 import { authService } from '../../lib/auth';
 import { cn } from '../../lib/utils';
+import { impactFeedService } from '../../lib/impactFeed';
 
 const CATEGORIES = [
     'Environmental',
@@ -19,6 +20,7 @@ const CATEGORIES = [
 ];
 
 export default function VolunteerProfile() {
+    const [activeTab, setActiveTab] = useState<'settings' | 'activity'>('settings');
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -31,6 +33,8 @@ export default function VolunteerProfile() {
     const [interests, setInterests] = useState<string[]>([]);
     const [skillInput, setSkillInput] = useState('');
     const [skills, setSkills] = useState<string[]>([]);
+    const [allowStoryTagging, setAllowStoryTagging] = useState(true);
+    const [activity, setActivity] = useState<any>(null);
 
     useEffect(() => {
         const load = async () => {
@@ -41,6 +45,7 @@ export default function VolunteerProfile() {
                 setAvailability(user.availability || '');
                 setInterests(user.interests || []);
                 setSkills(user.skills || []);
+                setAllowStoryTagging(user.allowStoryTagging !== false);
             } catch (err: any) {
                 setError(err.message);
             } finally {
@@ -48,6 +53,20 @@ export default function VolunteerProfile() {
             }
         };
         load();
+    }, []);
+
+    useEffect(() => {
+        const loadActivity = async () => {
+            const current = authService.getCurrentUser();
+            if (!current?.id) return;
+            try {
+                const data = await impactFeedService.getVolunteerActivity(current.id);
+                setActivity(data);
+            } catch {
+                setActivity({ taggedPosts: [], completedMissions: [] });
+            }
+        };
+        loadActivity();
     }, []);
 
     const toggleInterest = (cat: string) => {
@@ -78,7 +97,8 @@ export default function VolunteerProfile() {
                 bio,
                 availability,
                 interests,
-                skills
+                skills,
+                allowStoryTagging
             });
             setSuccess('Profile updated successfully.');
         } catch (err: any) {
@@ -113,6 +133,26 @@ export default function VolunteerProfile() {
             </header>
 
             <main className="max-w-2xl mx-auto px-4 mt-8">
+                <div className="flex gap-2 mb-4">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant={activeTab === 'settings' ? 'primary' : 'outline'}
+                        onClick={() => setActiveTab('settings')}
+                    >
+                        Profile Settings
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant={activeTab === 'activity' ? 'primary' : 'outline'}
+                        onClick={() => setActiveTab('activity')}
+                    >
+                        Activity Timeline
+                    </Button>
+                </div>
+
+                {activeTab === 'settings' ? (
                 <form onSubmit={handleSave} className="space-y-6">
                     {error && <Alert variant="error">{error}</Alert>}
                     {success && <Alert variant="success">{success}</Alert>}
@@ -218,10 +258,88 @@ export default function VolunteerProfile() {
                         </CardContent>
                     </Card>
 
+                    <Card>
+                        <CardContent className="p-6 space-y-2">
+                            <h2 className="font-bold text-hive-text-primary">Privacy</h2>
+                            <label className="flex items-center gap-2 text-sm text-hive-text-secondary">
+                                <input
+                                    type="checkbox"
+                                    checked={allowStoryTagging}
+                                    onChange={(e) => setAllowStoryTagging(e.target.checked)}
+                                />
+                                Allow NGOs to tag me in impact stories
+                            </label>
+                        </CardContent>
+                    </Card>
+
                     <Button type="submit" className="w-full gap-2" isLoading={isSaving}>
                         <Save className="h-4 w-4" /> Save profile
                     </Button>
                 </form>
+                ) : (
+                    <div className="space-y-4">
+                        <Card>
+                            <CardContent className="p-6">
+                                <h2 className="font-bold text-hive-text-primary mb-3">Tagged Impact Stories</h2>
+                                {activity?.taggedPosts?.length ? (
+                                    <div className="space-y-2">
+                                        {activity.taggedPosts.map((post: any) => (
+                                            <div key={post._id} className="border border-slate-100 rounded-lg p-3">
+                                                <p className="text-sm font-bold">{post.title}</p>
+                                                <p className="text-xs text-hive-text-secondary">
+                                                    {post.ngo?.name} · {new Date(post.createdAt).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-hive-text-secondary">No tagged stories yet.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-6">
+                                <h2 className="font-bold text-hive-text-primary mb-3">Completed Missions</h2>
+                                {activity?.completedMissions?.length ? (
+                                    <div className="space-y-2">
+                                        {activity.completedMissions.map((m: any, idx: number) => (
+                                            <div key={`${m.title}-${idx}`} className="border border-slate-100 rounded-lg p-3">
+                                                <p className="text-sm font-bold">{m.title}</p>
+                                                <p className="text-xs text-hive-text-secondary">
+                                                    {new Date(m.date).toLocaleDateString()} · {m.hoursWorked}h verified
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-hive-text-secondary">No completed missions yet.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-6">
+                                <h2 className="font-bold text-hive-text-primary mb-3">Recent Comments</h2>
+                                {activity?.recentComments?.length ? (
+                                    <div className="space-y-2">
+                                        {activity.recentComments.map((c: any) => (
+                                            <div key={c.commentId} className="border border-slate-100 rounded-lg p-3">
+                                                <p className="text-xs font-bold text-hive-text-secondary">
+                                                    {c.postTitle}
+                                                </p>
+                                                <p className="text-sm">{c.text}</p>
+                                                <p className="text-[10px] text-hive-text-secondary">
+                                                    {new Date(c.createdAt).toLocaleString()}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-hive-text-secondary">No recent comments yet.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </main>
         </div>
     );
