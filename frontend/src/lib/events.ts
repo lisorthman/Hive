@@ -79,6 +79,10 @@ export const eventService = {
         }
     },
 
+    async updateEventStatus(id: string, status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled') {
+        return this.updateEvent(id, { status });
+    },
+
     async updateEvent(id: string, eventData: any) {
         try {
             const token = localStorage.getItem('token');

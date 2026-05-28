@@ -588,7 +588,7 @@ export default function AdminDashboard() {
                                     <div>
                                         <h3 className="font-bold text-hive-text-primary">Impact moderation queue</h3>
                                         <p className="text-xs text-hive-text-secondary mt-1">
-                                            Open reports from the community feed.
+                                            Open reports from the community feed. Resolve hides the reported content.
                                         </p>
                                     </div>
                                     <Button variant="outline" size="sm" onClick={fetchImpactReports}>
@@ -604,6 +604,7 @@ export default function AdminDashboard() {
                                                 <TableHead>When</TableHead>
                                                 <TableHead>Reporter</TableHead>
                                                 <TableHead>Target</TableHead>
+                                                <TableHead>Reason</TableHead>
                                                 <TableHead>Status</TableHead>
                                                 <TableHead className="text-right">Actions</TableHead>
                                             </TableRow>
@@ -618,14 +619,34 @@ export default function AdminDashboard() {
                                                         <p className="text-sm font-bold text-hive-text-primary">{r.reporter?.name}</p>
                                                         <p className="text-[10px] text-hive-text-secondary uppercase">{r.reporter?.role}</p>
                                                     </TableCell>
-                                                    <TableCell className="text-xs font-mono text-hive-text-secondary">
-                                                        {r.targetType}:{String(r.targetId).slice(-8)}
+                                                    <TableCell className="text-xs text-hive-text-secondary max-w-[140px]">
+                                                        <span className="capitalize">{r.targetType?.replace('_', ' ')}</span>
+                                                        <p className="font-medium text-hive-text-primary truncate">
+                                                            {r.targetLabel || String(r.targetId).slice(-8)}
+                                                        </p>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-hive-text-secondary max-w-[160px] truncate">
+                                                        {r.reason || '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge className="text-[10px] capitalize">{r.status}</Badge>
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-2">
+                                                        <div className="flex justify-end gap-2 flex-wrap">
+                                                            {(r.targetType === 'impact_post' || r.postId) && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="text-xs"
+                                                                    onClick={() =>
+                                                                        navigate(
+                                                                            `/impact-feed?focus=${r.postId || r.targetId}`
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    View
+                                                                </Button>
+                                                            )}
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"

@@ -54,6 +54,7 @@ export default function NGODashboard() {
     const [isRemovingVolunteerId, setIsRemovingVolunteerId] = useState<string | null>(null);
     const [removeMessage, setRemoveMessage] = useState('');
     const [myImpactPosts, setMyImpactPosts] = useState<any[]>([]);
+    const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const fetchEvents = async () => {
@@ -372,7 +373,7 @@ export default function NGODashboard() {
                             variant="outline"
                             size="sm"
                             className="gap-2 h-9"
-                            onClick={() => navigate('/impact-feed')}
+                            onClick={() => setIsPublishModalOpen(true)}
                         >
                             <Sparkles className="h-4 w-4" />
                             Publish Impact Story
@@ -386,8 +387,11 @@ export default function NGODashboard() {
                             <h2 className="text-lg font-bold text-slate-900">
                                 Impact Story Management
                             </h2>
+                            <Button size="sm" variant="outline" onClick={() => setIsPublishModalOpen(true)}>
+                                Publish to a mission
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => navigate('/impact-feed')}>
-                                Open Feed Studio
+                                Open Feed
                             </Button>
                         </div>
                         {myImpactPosts.length === 0 ? (
@@ -595,6 +599,61 @@ export default function NGODashboard() {
             </main>
 
             {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={isPublishModalOpen}
+                onClose={() => setIsPublishModalOpen(false)}
+                title="Publish impact story"
+            >
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                    <p className="text-sm text-slate-600">
+                        Choose a mission to link your story. Mark it completed and check in volunteers
+                        before publishing.
+                    </p>
+                    {events.length === 0 ? (
+                        <p className="text-sm text-slate-500">Create a mission first.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {events.map((ev) => (
+                                <div
+                                    key={ev._id}
+                                    className="border border-slate-100 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                                >
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-900">{ev.title}</p>
+                                        <p className="text-xs text-slate-500 capitalize">
+                                            {ev.status} · {new Date(ev.date).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {ev.status !== 'completed' && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setIsPublishModalOpen(false);
+                                                    navigate(`/ngo-mission/${ev._id}`);
+                                                }}
+                                            >
+                                                Complete first
+                                            </Button>
+                                        )}
+                                        <Button
+                                            size="sm"
+                                            onClick={() => {
+                                                setIsPublishModalOpen(false);
+                                                navigate(`/impact-feed?eventId=${ev._id}`);
+                                            }}
+                                        >
+                                            Publish story
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
             <Modal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}

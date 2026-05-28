@@ -13,7 +13,8 @@ import {
     ClipboardList,
     MapPin,
     Shield,
-    Sparkles
+    Sparkles,
+    CheckCircle
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -41,6 +42,7 @@ export default function NGOMissionHub() {
     const [commentThreads, setCommentThreads] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isCompleting, setIsCompleting] = useState(false);
 
     useEffect(() => {
         if (!eventId) return;
@@ -86,6 +88,21 @@ export default function NGOMissionHub() {
         [attendance]
     );
     const commentCount = useMemo(() => countThreadedComments(commentThreads), [commentThreads]);
+
+    const markMissionCompleted = async () => {
+        if (!eventId || !window.confirm('Mark this mission as completed? You can then publish an impact story.')) {
+            return;
+        }
+        setIsCompleting(true);
+        try {
+            const updated = await eventService.updateEventStatus(eventId, 'completed');
+            setEvent(updated);
+        } catch (err: any) {
+            alert(err.message || 'Failed to update mission status');
+        } finally {
+            setIsCompleting(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -145,6 +162,22 @@ export default function NGOMissionHub() {
                             <MapPin className="h-4 w-4" /> {event.location?.name}
                         </span>
                     </p>
+                    {event.status !== 'completed' && event.status !== 'cancelled' && (
+                        <Button
+                            className="mt-2 gap-2"
+                            onClick={markMissionCompleted}
+                            isLoading={isCompleting}
+                        >
+                            <CheckCircle className="h-4 w-4" />
+                            Mark mission as completed
+                        </Button>
+                    )}
+                    {event.status === 'completed' && (
+                        <p className="text-sm text-emerald-700 font-medium mt-2 flex items-center gap-1">
+                            <CheckCircle className="h-4 w-4" />
+                            Mission completed — ready for impact story
+                        </p>
+                    )}
                 </div>
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
