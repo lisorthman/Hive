@@ -5,6 +5,8 @@ const authHeaders = (): HeadersInit => ({
     Authorization: `Bearer ${authService.getToken()}`
 });
 
+export type FeedScope = 'all' | 'my_missions' | 'saved';
+
 export const impactFeedService = {
     async getFeed(params?: {
         category?: string;
@@ -17,6 +19,7 @@ export const impactFeedService = {
         featured?: boolean;
         eventId?: string;
         eventInstanceId?: string;
+        scope?: FeedScope;
     }) {
         const search = new URLSearchParams();
         if (params?.category) search.set('category', params.category);
@@ -29,6 +32,7 @@ export const impactFeedService = {
         if (params?.featured) search.set('featured', 'true');
         if (params?.eventId) search.set('eventId', params.eventId);
         if (params?.eventInstanceId) search.set('eventInstanceId', params.eventInstanceId);
+        if (params?.scope && params.scope !== 'all') search.set('scope', params.scope);
 
         const qs = search.toString();
         const response = await fetch(`${API_URL}/impact-posts${qs ? `?${qs}` : ''}`, {
@@ -37,6 +41,15 @@ export const impactFeedService = {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to fetch impact feed');
         return data;
+    },
+
+    async getSavedPosts() {
+        const response = await fetch(`${API_URL}/impact-posts/saved/list`, {
+            headers: authHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch saved posts');
+        return data.data;
     },
 
     async getTrending() {
@@ -93,6 +106,27 @@ export const impactFeedService = {
         return data.data;
     },
 
+    async updatePost(
+        postId: string,
+        payload: {
+            title?: string;
+            description?: string;
+            hashtags?: string[];
+            visibility?: 'public' | 'community';
+            photos?: string[];
+            taggedVolunteers?: string[];
+        }
+    ) {
+        const response = await fetch(`${API_URL}/impact-posts/${postId}`, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to update post');
+        return data.data;
+    },
+
     async likePost(postId: string) {
         const response = await fetch(`${API_URL}/impact-posts/${postId}/like`, {
             method: 'POST',
@@ -120,7 +154,7 @@ export const impactFeedService = {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to save post');
-        return data.data;
+        return data.data as { saved: boolean; savesCount: number };
     },
 
     async shareImpactPost(postId: string) {
@@ -130,6 +164,35 @@ export const impactFeedService = {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to share post');
+        return data.data as { sharesCount: number; shareUrl: string };
+    },
+
+    async addContribution(postId: string, text: string) {
+        const response = await fetch(`${API_URL}/impact-posts/${postId}/contributions`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ text })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to submit contribution');
+        return data.data;
+    },
+
+    async moderateContribution(
+        postId: string,
+        contributionId: string,
+        status: 'approved' | 'rejected'
+    ) {
+        const response = await fetch(
+            `${API_URL}/impact-posts/${postId}/contributions/${contributionId}`,
+            {
+                method: 'PUT',
+                headers: authHeaders(),
+                body: JSON.stringify({ status })
+            }
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to moderate contribution');
         return data.data;
     },
 

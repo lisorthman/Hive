@@ -62,6 +62,14 @@ export function NotificationDropdown() {
 
     const handleNotificationClick = (n: any) => {
         markAsRead(n._id);
+        if (n.impactPost) {
+            const postId = typeof n.impactPost === 'string' ? n.impactPost : n.impactPost._id;
+            if (postId) {
+                navigate(`/impact-feed?focus=${postId}`);
+                setShowNotifications(false);
+                return;
+            }
+        }
         if (n.event?._id) {
             navigate(`/event/${n.event._id}`);
             setShowNotifications(false);

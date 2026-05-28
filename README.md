@@ -15,6 +15,9 @@ Repository: [github.com/lisorthman/Hive](https://github.com/lisorthman/Hive)
 - Profile with interests, skills, availability, and bio
 - QR / code **check-in**, badges, **leaderboard**, and digital **impact resume**
 - **Reviews** (after verified attendance) and threaded **event discussions**
+- **Impact Stories feed** — browse all stories, filter **My missions** or **Saved**, like, comment, save, and share
+- Submit short **volunteer additions** on stories (NGO approves before they appear)
+- Profile **activity timeline** for tagged stories and completed missions; control **tagging consent**
 
 ### NGOs
 - Create and manage events with map-based location search and pin placement
@@ -23,10 +26,27 @@ Repository: [github.com/lisorthman/Hive](https://github.com/lisorthman/Hive)
 - Public **NGO profile** (verified organizations only)
 - Volunteer feedback summary on the dashboard
 - **Impact report export** (CSV or PDF): attendance, hours, ratings, and event list
+- **Impact Stories** — publish after mission completion, tag checked-in volunteers (search + tag all), public or community visibility
+- **Quick publish wizard** — generate draft and tag all eligible volunteers from mission hub
 
 ### Admins
 - Approve or reject NGO registrations (document upload on register)
 - **Audit log**: NGO status changes, admin comment deletions, and event deletions (who, what, when, SHA-256 payload hash)
+- **Impact moderation queue** — review reported posts and comments (posts and comments)
+
+### Impact Stories (testing)
+
+```bash
+cd backend && npm run seed:demo
+```
+
+| Role | Email | Password |
+|------|--------|----------|
+| Admin | admin@gmail.com | 123456 |
+| NGO | save@earth.org | 123456 |
+| Volunteer | alex@volunteer.com | 123456 |
+
+Feed: `http://localhost:5173/impact-feed` — volunteers can use **My missions** for stories tied to their work.
 
 ## Tech stack
 

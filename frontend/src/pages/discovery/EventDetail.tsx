@@ -38,6 +38,7 @@ import { cn } from '../../lib/utils';
 import { EventReviewsSection } from '../../components/event/EventReviewsSection';
 import { EventDiscussionSection } from '../../components/event/EventDiscussionSection';
 import { impactFeedService } from '../../lib/impactFeed';
+import { resolveUploadUrl } from '../../lib/apiBase';
 
 
 export default function EventDetail() {
@@ -534,7 +535,7 @@ export default function EventDetail() {
                                                 src={
                                                     photo.startsWith('http')
                                                         ? photo
-                                                        : `http://127.0.0.1:5001${photo}`
+                                                        : resolveUploadUrl(photo)
                                                 }
                                                 className="w-full h-28 rounded-xl object-cover border border-slate-100"
                                             />
