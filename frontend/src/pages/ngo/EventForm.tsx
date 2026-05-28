@@ -25,12 +25,42 @@ import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
 import { cn } from '../../lib/utils';
 import { eventService } from '../../lib/events';
+import { seriesService } from '../../lib/series';
 import { LocationMapPicker } from '../../components/map/LocationMapPicker';
+
+const WEEKDAYS = [
+    { value: 0, label: 'Sunday' },
+    { value: 1, label: 'Monday' },
+    { value: 2, label: 'Tuesday' },
+    { value: 3, label: 'Wednesday' },
+    { value: 4, label: 'Thursday' },
+    { value: 5, label: 'Friday' },
+    { value: 6, label: 'Saturday' }
+];
+
+type ShiftSlotDraft = {
+    label: string;
+    startTime: string;
+    endTime: string;
+    capacity: number;
+};
 
 export default function EventForm() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const isEdit = !!id;
+
+    const [missionKind, setMissionKind] = useState<'one-time' | 'recurring'>('one-time');
+    const [useShiftSlots, setUseShiftSlots] = useState(false);
+    const [shiftSlots, setShiftSlots] = useState<ShiftSlotDraft[]>([
+        { label: 'Morning shift', startTime: '09:00', endTime: '12:00', capacity: 10 },
+        { label: 'Afternoon shift', startTime: '13:00', endTime: '16:00', capacity: 10 }
+    ]);
+    const [recurrence, setRecurrence] = useState({
+        dayOfWeek: 3,
+        seriesStart: '',
+        seriesEnd: ''
+    });
 
     const [formData, setFormData] = useState({
         name: '',
@@ -103,24 +133,61 @@ export default function EventForm() {
         }
 
         try {
-            // Transform data as per backend model
-            const eventPayload = {
-                title: formData.name,
-                description: formData.description,
-                category: formData.category,
-                date: new Date(formData.date),
-                location: {
-                    name: formData.address,
-                    coordinates: formData.coords ? [formData.coords[1], formData.coords[0]] : [0, 0] // GeoJSON: [lng, lat]
-                },
-                capacity: formData.capacity,
-                prepNotes: formData.prepNotes
+            const locationPayload = {
+                name: formData.address,
+                coordinates: formData.coords ? [formData.coords[1], formData.coords[0]] : [0, 0]
             };
 
-            if (isEdit) {
-                await eventService.updateEvent(id!, eventPayload);
+            const slotPayload = useShiftSlots
+                ? shiftSlots.map((s) => ({
+                      label: s.label,
+                      startTime: s.startTime,
+                      endTime: s.endTime,
+                      capacity: s.capacity
+                  }))
+                : undefined;
+
+            const totalSlotCapacity = useShiftSlots
+                ? shiftSlots.reduce((sum, s) => sum + s.capacity, 0)
+                : formData.capacity;
+
+            if (!isEdit && missionKind === 'recurring') {
+                if (!recurrence.seriesStart || !recurrence.seriesEnd) {
+                    setError('Set the first and last date for the recurring series');
+                    setIsSubmitting(false);
+                    return;
+                }
+                await seriesService.createSeries({
+                    title: formData.name,
+                    description: formData.description,
+                    category: formData.category,
+                    location: locationPayload,
+                    prepNotes: formData.prepNotes,
+                    recurrence: { frequency: 'weekly', dayOfWeek: recurrence.dayOfWeek },
+                    seriesStart: new Date(recurrence.seriesStart),
+                    seriesEnd: new Date(recurrence.seriesEnd),
+                    defaultCapacity: totalSlotCapacity,
+                    useShiftSlots,
+                    shiftSlotTemplate: slotPayload
+                });
             } else {
-                await eventService.createEvent(eventPayload);
+                const eventPayload = {
+                    title: formData.name,
+                    description: formData.description,
+                    category: formData.category,
+                    date: new Date(formData.date),
+                    location: locationPayload,
+                    capacity: totalSlotCapacity,
+                    prepNotes: formData.prepNotes,
+                    useShiftSlots,
+                    shiftSlots: slotPayload
+                };
+
+                if (isEdit) {
+                    await eventService.updateEvent(id!, eventPayload);
+                } else {
+                    await eventService.createEvent(eventPayload);
+                }
             }
 
             setIsSubmitting(false);
@@ -240,27 +307,190 @@ export default function EventForm() {
                     </div>
                 </Section>
 
+                {!isEdit && (
+                    <Section title="Mission type" icon={<Calendar className="h-5 w-5" />}>
+                        <div className="flex flex-wrap gap-3">
+                            {(['one-time', 'recurring'] as const).map((kind) => (
+                                <button
+                                    key={kind}
+                                    type="button"
+                                    onClick={() => setMissionKind(kind)}
+                                    className={cn(
+                                        'px-4 py-2 rounded-xl border-2 text-sm font-bold transition-all',
+                                        missionKind === kind
+                                            ? 'border-hive-primary bg-hive-primary/5 text-hive-primary'
+                                            : 'border-slate-100 text-hive-text-secondary'
+                                    )}
+                                >
+                                    {kind === 'one-time' ? 'One-time mission' : 'Recurring series'}
+                                </button>
+                            ))}
+                        </div>
+                        {missionKind === 'recurring' && (
+                            <p className="text-xs text-hive-text-secondary mt-3">
+                                Creates one series (e.g. weekly food bank) with RSVP per date.
+                            </p>
+                        )}
+                    </Section>
+                )}
+
                 {/* Schedule & Capacity Section */}
                 <Section title="Schedule & Capacity" icon={<Calendar className="h-5 w-5" />}>
-                    <div className="grid sm:grid-cols-3 gap-6">
-                        <Input
-                            type="date"
-                            label="Date"
-                            value={formData.date}
-                            onChange={(e) => handleInputChange('date', e.target.value)}
-                        />
-                        <Input
-                            type="time"
-                            label="Start Time"
-                            value={formData.startTime}
-                            onChange={(e) => handleInputChange('startTime', e.target.value)}
-                        />
-                        <Input
-                            type="number"
-                            label="Volunteers Needed"
-                            value={formData.capacity}
-                            onChange={(e) => handleInputChange('capacity', parseInt(e.target.value))}
-                        />
+                    {missionKind === 'recurring' && !isEdit ? (
+                        <div className="grid sm:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-hive-text-primary">Repeats weekly on</label>
+                                <select
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+                                    value={recurrence.dayOfWeek}
+                                    onChange={(e) =>
+                                        setRecurrence((r) => ({
+                                            ...r,
+                                            dayOfWeek: parseInt(e.target.value, 10)
+                                        }))
+                                    }
+                                >
+                                    {WEEKDAYS.map((d) => (
+                                        <option key={d.value} value={d.value}>
+                                            {d.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <Input
+                                type="number"
+                                label="Volunteers per date"
+                                value={formData.capacity}
+                                onChange={(e) =>
+                                    handleInputChange('capacity', parseInt(e.target.value, 10) || 1)
+                                }
+                            />
+                            <Input
+                                type="date"
+                                label="Series starts"
+                                value={recurrence.seriesStart}
+                                onChange={(e) =>
+                                    setRecurrence((r) => ({ ...r, seriesStart: e.target.value }))
+                                }
+                            />
+                            <Input
+                                type="date"
+                                label="Series ends"
+                                value={recurrence.seriesEnd}
+                                onChange={(e) =>
+                                    setRecurrence((r) => ({ ...r, seriesEnd: e.target.value }))
+                                }
+                            />
+                        </div>
+                    ) : (
+                        <div className="grid sm:grid-cols-3 gap-6">
+                            <Input
+                                type="date"
+                                label="Date"
+                                value={formData.date}
+                                onChange={(e) => handleInputChange('date', e.target.value)}
+                            />
+                            <Input
+                                type="time"
+                                label="Start Time"
+                                value={formData.startTime}
+                                onChange={(e) => handleInputChange('startTime', e.target.value)}
+                            />
+                            <Input
+                                type="number"
+                                label="Volunteers Needed"
+                                value={formData.capacity}
+                                onChange={(e) =>
+                                    handleInputChange('capacity', parseInt(e.target.value, 10) || 1)
+                                }
+                            />
+                        </div>
+                    )}
+
+                    <div className="mt-6 pt-6 border-t border-slate-100 space-y-4">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={useShiftSlots}
+                                onChange={(e) => setUseShiftSlots(e.target.checked)}
+                                className="rounded border-slate-300 text-hive-primary focus:ring-hive-primary"
+                            />
+                            <span className="text-sm font-bold text-hive-text-primary">
+                                Multiple shift slots (e.g. 9–12 and 1–4)
+                            </span>
+                        </label>
+
+                        {useShiftSlots && (
+                            <div className="space-y-3">
+                                {shiftSlots.map((slot, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="grid sm:grid-cols-4 gap-3 p-3 bg-slate-50 rounded-xl"
+                                    >
+                                        <Input
+                                            label="Label"
+                                            value={slot.label}
+                                            onChange={(e) => {
+                                                const next = [...shiftSlots];
+                                                next[idx] = { ...next[idx], label: e.target.value };
+                                                setShiftSlots(next);
+                                            }}
+                                        />
+                                        <Input
+                                            type="time"
+                                            label="Start"
+                                            value={slot.startTime}
+                                            onChange={(e) => {
+                                                const next = [...shiftSlots];
+                                                next[idx] = { ...next[idx], startTime: e.target.value };
+                                                setShiftSlots(next);
+                                            }}
+                                        />
+                                        <Input
+                                            type="time"
+                                            label="End"
+                                            value={slot.endTime}
+                                            onChange={(e) => {
+                                                const next = [...shiftSlots];
+                                                next[idx] = { ...next[idx], endTime: e.target.value };
+                                                setShiftSlots(next);
+                                            }}
+                                        />
+                                        <Input
+                                            type="number"
+                                            label="Capacity"
+                                            value={slot.capacity}
+                                            onChange={(e) => {
+                                                const next = [...shiftSlots];
+                                                next[idx] = {
+                                                    ...next[idx],
+                                                    capacity: parseInt(e.target.value, 10) || 1
+                                                };
+                                                setShiftSlots(next);
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                        setShiftSlots((s) => [
+                                            ...s,
+                                            {
+                                                label: `Shift ${s.length + 1}`,
+                                                startTime: '09:00',
+                                                endTime: '12:00',
+                                                capacity: 10
+                                            }
+                                        ])
+                                    }
+                                >
+                                    Add shift slot
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </Section>
 
