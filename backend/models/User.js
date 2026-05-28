@@ -65,6 +65,10 @@ const userSchema = new mongoose.Schema({
         maxlength: [300, 'Availability cannot exceed 300 characters'],
         default: ''
     },
+    allowStoryTagging: {
+        type: Boolean,
+        default: true
+    },
     emailVerified: {
         type: Boolean,
         default: function () {
