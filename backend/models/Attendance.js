@@ -35,6 +35,10 @@ const attendanceSchema = new mongoose.Schema({
         default: null,
         trim: true
     },
+    safetyAcknowledgedAt: {
+        type: Date,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now

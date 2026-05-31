@@ -348,6 +348,13 @@ exports.joinEvent = async (req, res) => {
             return res.status(400).json({ success: false, error: 'This mission has been cancelled' });
         }
 
+        if (event.missionMode === 'emergency' && req.body.safetyAcknowledged !== true) {
+            return res.status(400).json({
+                success: false,
+                error: 'You must acknowledge field conditions before joining an emergency mission'
+            });
+        }
+
         const result = await joinMission({
             doc: event,
             userId: req.user.id,
@@ -365,7 +372,9 @@ exports.joinEvent = async (req, res) => {
                     deploymentRole:
                         event.missionMode === 'emergency' && req.body.deploymentRole
                             ? String(req.body.deploymentRole).trim().slice(0, 80)
-                            : null
+                            : null,
+                    safetyAcknowledgedAt:
+                        event.missionMode === 'emergency' ? new Date() : null
                 });
             } catch (error) {
                 if (error.code !== 11000) {
