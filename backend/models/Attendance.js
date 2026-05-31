@@ -30,6 +30,11 @@ const attendanceSchema = new mongoose.Schema({
     checkedInAt: {
         type: Date
     },
+    deploymentRole: {
+        type: String,
+        default: null,
+        trim: true
+    },
     createdAt: {
         type: Date,
         default: Date.now

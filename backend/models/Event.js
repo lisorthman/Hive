@@ -105,7 +105,18 @@ const eventSchema = new mongoose.Schema({
             type: String,
             enum: ['active', 'stand_down', 'resolved'],
             default: 'active'
-        }
+        },
+        partnerNgos: [
+            {
+                ngo: { type: mongoose.Schema.ObjectId, ref: 'User' },
+                status: {
+                    type: String,
+                    enum: ['pending', 'accepted', 'declined'],
+                    default: 'pending'
+                },
+                invitedAt: { type: Date, default: Date.now }
+            }
+        ]
     },
     status: {
         type: String,
