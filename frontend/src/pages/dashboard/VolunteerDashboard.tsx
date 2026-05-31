@@ -12,7 +12,8 @@ import {
     TrendingUp,
     LogOut,
     Loader2,
-    Sparkles
+    Sparkles,
+    AlertTriangle
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -26,6 +27,7 @@ import { missionPath } from '../../lib/missions';
 import { attendanceService } from '../../lib/attendance';
 import { NotificationDropdown } from '../../components/notifications/NotificationDropdown';
 import { VolunteerMissionCalendar } from '../../components/calendar/VolunteerMissionCalendar';
+import { crisisService } from '../../lib/crisis';
 
 export default function VolunteerDashboard() {
     const navigate = useNavigate();
@@ -44,6 +46,7 @@ export default function VolunteerDashboard() {
         badges: []
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [activeCrisisCount, setActiveCrisisCount] = useState(0);
     useEffect(() => {
         const getGeo = () =>
             new Promise<{ lat: number; lng: number } | null>((resolve) => {
@@ -87,6 +90,13 @@ export default function VolunteerDashboard() {
                 } catch {
                     const fallback = await eventService.getEvents();
                     setRecommendedEvents(fallback.slice(0, 4));
+                }
+
+                try {
+                    const crises = await crisisService.getMap();
+                    setActiveCrisisCount(Array.isArray(crises) ? crises.length : 0);
+                } catch {
+                    setActiveCrisisCount(0);
                 }
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
@@ -168,9 +178,51 @@ export default function VolunteerDashboard() {
                             <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/impact-feed')}>
                                 <Sparkles className="h-4 w-4" /> Impact Feed
                             </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 text-rose-600 border-rose-200 hover:bg-rose-50 font-bold"
+                                onClick={() => navigate('/crisis')}
+                            >
+                                <AlertTriangle className="h-4 w-4" /> Crisis Hub
+                                {activeCrisisCount > 0 && (
+                                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px]">
+                                        {activeCrisisCount}
+                                    </span>
+                                )}
+                            </Button>
                         </div>
                     </motion.div>
                 </section>
+
+                {activeCrisisCount > 0 && (
+                    <section className="mb-8">
+                        <Card className="border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50">
+                            <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="h-6 w-6 text-rose-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <h3 className="font-bold text-rose-900">
+                                            {activeCrisisCount} active crisis mission{activeCrisisCount === 1 ? '' : 's'}
+                                        </h3>
+                                        <p className="text-sm text-rose-800/80 mt-1">
+                                            {profile?.emergencyProfile?.availableForEmergencies
+                                                ? 'You are opted in for emergency alerts. View deployments on the Crisis Hub.'
+                                                : 'Enable emergency availability in your profile to receive targeted alerts.'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    className="bg-rose-600 hover:bg-rose-700 shrink-0"
+                                    onClick={() => navigate('/crisis')}
+                                >
+                                    Open Crisis Hub
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </section>
+                )}
 
                 {/* Stats Grid */}
                 <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">

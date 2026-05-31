@@ -34,6 +34,10 @@ export default function VolunteerProfile() {
     const [skillInput, setSkillInput] = useState('');
     const [skills, setSkills] = useState<string[]>([]);
     const [allowStoryTagging, setAllowStoryTagging] = useState(true);
+    const [availableForEmergencies, setAvailableForEmergencies] = useState(false);
+    const [emergencyWindow, setEmergencyWindow] = useState<'anytime' | 'weekdays' | 'weekends'>('anytime');
+    const [maxRadiusKm, setMaxRadiusKm] = useState(25);
+    const [remoteSupportOk, setRemoteSupportOk] = useState(false);
     const [activity, setActivity] = useState<any>(null);
 
     useEffect(() => {
@@ -46,6 +50,11 @@ export default function VolunteerProfile() {
                 setInterests(user.interests || []);
                 setSkills(user.skills || []);
                 setAllowStoryTagging(user.allowStoryTagging !== false);
+                const ep = user.emergencyProfile;
+                setAvailableForEmergencies(!!ep?.availableForEmergencies);
+                setEmergencyWindow(ep?.availabilityWindow || 'anytime');
+                setMaxRadiusKm(ep?.maxRadiusKm ?? 25);
+                setRemoteSupportOk(!!ep?.remoteSupportOk);
             } catch (err: any) {
                 setError(err.message);
             } finally {
@@ -98,7 +107,13 @@ export default function VolunteerProfile() {
                 availability,
                 interests,
                 skills,
-                allowStoryTagging
+                allowStoryTagging,
+                emergencyProfile: {
+                    availableForEmergencies,
+                    availabilityWindow: emergencyWindow,
+                    maxRadiusKm,
+                    remoteSupportOk
+                }
             });
             setSuccess('Profile updated successfully.');
         } catch (err: any) {
@@ -255,6 +270,60 @@ export default function VolunteerProfile() {
                                     </span>
                                 ))}
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-6 space-y-4">
+                            <h2 className="font-bold text-hive-text-primary">Emergency availability</h2>
+                            <p className="text-xs text-hive-text-secondary">
+                                Opt in to receive crisis alerts when NGOs launch emergency missions near you.
+                            </p>
+                            <label className="flex items-center gap-2 text-sm text-hive-text-secondary">
+                                <input
+                                    type="checkbox"
+                                    checked={availableForEmergencies}
+                                    onChange={(e) => setAvailableForEmergencies(e.target.checked)}
+                                />
+                                Available for emergency deployments
+                            </label>
+                            {availableForEmergencies && (
+                                <div className="space-y-3 pt-2 border-t border-slate-100">
+                                    <label className="block text-xs font-bold text-hive-text-secondary">
+                                        Availability window
+                                        <select
+                                            className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                                            value={emergencyWindow}
+                                            onChange={(e) =>
+                                                setEmergencyWindow(e.target.value as 'anytime' | 'weekdays' | 'weekends')
+                                            }
+                                        >
+                                            <option value="anytime">Anytime</option>
+                                            <option value="weekdays">Weekdays only</option>
+                                            <option value="weekends">Weekends only</option>
+                                        </select>
+                                    </label>
+                                    <label className="block text-xs font-bold text-hive-text-secondary">
+                                        Max travel radius (km)
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={500}
+                                            className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                                            value={maxRadiusKm}
+                                            onChange={(e) => setMaxRadiusKm(Number(e.target.value) || 25)}
+                                        />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm text-hive-text-secondary">
+                                        <input
+                                            type="checkbox"
+                                            checked={remoteSupportOk}
+                                            onChange={(e) => setRemoteSupportOk(e.target.checked)}
+                                        />
+                                        I can help remotely (coordination, translation, etc.)
+                                    </label>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
