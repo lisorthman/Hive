@@ -18,6 +18,7 @@ Repository: [github.com/lisorthman/Hive](https://github.com/lisorthman/Hive)
 - **Impact Stories feed** — browse all stories, filter **My missions** or **Saved**, like, comment, save, and share
 - Submit short **volunteer additions** on stories (NGO approves before they appear)
 - Profile **activity timeline** for tagged stories and completed missions; control **tagging consent**
+- **Crisis Hub** — opt in for emergency alerts, join crisis missions with safety acknowledgment, rapid check-in, resource pledges, and live situation updates
 
 ### NGOs
 - Create and manage events with map-based location search and pin placement
@@ -28,11 +29,41 @@ Repository: [github.com/lisorthman/Hive](https://github.com/lisorthman/Hive)
 - **Impact report export** (CSV or PDF): attendance, hours, ratings, and event list
 - **Impact Stories** — publish after mission completion, tag checked-in volunteers (search + tag all), public or community visibility
 - **Quick publish wizard** — generate draft and tag all eligible volunteers from mission hub
+- **Crisis Hub** — launch emergency missions, broadcast targeted alerts, manage resource requests, partner NGOs, live updates, and post-crisis analytics
 
 ### Admins
 - Approve or reject NGO registrations (document upload on register)
 - **Audit log**: NGO status changes, admin comment deletions, and event deletions (who, what, when, SHA-256 payload hash)
 - **Impact moderation queue** — review reported posts and comments (posts and comments)
+- **Active Crises** — national oversight of ongoing emergency missions
+
+### Crisis Hub
+
+Hive Crisis Hub extends planned volunteering with **urgent disaster response** — floods, medical shortages, shelter needs, and more.
+
+| Capability | Description |
+|------------|-------------|
+| Emergency missions | Verified NGOs publish urgent missions with disaster type, needs, and deployment mode |
+| Crisis map | `/crisis` — active emergencies on a map with live update snippets |
+| Volunteer opt-in | Profile → **Emergency availability** (radius, window, remote support) |
+| Alerts | In-app notifications to matched, opted-in volunteers |
+| Rapid check-in | One-tap deployment check-in on active crisis missions (no QR code) |
+| Resources | NGOs post supply needs; volunteers pledge quantities |
+| Live updates | Situation timeline on mission pages and public summary |
+| Analytics | Response times, deployment rate, hours, and resource pledges |
+| Partners | NGOs invite verified partners to collaborate on a crisis |
+
+**Key routes:** `/crisis`, `/crisis/:eventId/summary`, `/ngo-crisis/create`, `/ngo-mission/:id` (command center)
+
+**Demo accounts** (after `npm run seed:demo`, password `123456`):
+
+| Role | Email |
+|------|--------|
+| NGO (crisis owner) | save@earth.org |
+| NGO (partner) | redcross@demo.org |
+| Volunteer (opted in) | alex@volunteer.com |
+
+See [TESTING.md](./TESTING.md) → **Crisis Hub** sections for the full checklist.
 
 ### Impact Stories (testing)
 
@@ -145,6 +176,10 @@ npm run preview
 | `/ngo-mission/:id` | NGO mission hub |
 | `/ngo-attendance/:id` | Attendance management |
 | `/ngo/:id` | Public NGO profile |
+| `/impact-feed` | Impact Stories community feed |
+| `/crisis` | Crisis Hub — active emergency map and missions |
+| `/crisis/:eventId/summary` | Public crisis response summary |
+| `/ngo-crisis/create` | Launch emergency / crisis mission |
 | `/admin` | Admin dashboard and audit log |
 | `/verify` | Email verification (`?token=...`) |
 
@@ -160,6 +195,8 @@ npm run preview
 | `/api/notifications` | In-app notifications |
 | `/api/ngos` | Public NGO profiles and events |
 | `/api/reports` | NGO impact report (`GET /impact?format=csv\|pdf`) |
+| `/api/impact-posts` | Impact Stories feed, publishing, engagement |
+| `/api/crisis` | Crisis map, alerts, resources, updates, analytics, partners |
 | `/api/admin` | NGO verification, audit logs |
 
 All protected routes use `Authorization: Bearer <token>`.

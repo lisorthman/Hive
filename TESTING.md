@@ -146,7 +146,7 @@ npm run seed
 | Discovery badge | `/discovery` — **Flood Relief — Colombo** shows Emergency badge, pinned first | alex |
 | Dashboard banner | `/dashboard` — crisis banner when active missions exist | alex |
 | Emergency opt-in | `/profile` → enable **Available for emergency deployments** | maya (off by default) |
-| Join crisis | Open flood mission → **Join Mission** | sam@volunteer.com |
+| Join crisis | Open flood mission → acknowledge **field conditions** → **Join Mission** | sam@volunteer.com |
 | Rapid check-in | After join on flood mission → **Rapid check-in** (no code needed) | sam |
 | NGO create crisis | `/ngo-crisis/create` or dashboard **Launch Crisis Mission** | save@earth.org |
 | Broadcast alert | `/ngo-mission/<flood-id>` → **Broadcast alert** → opted-in volunteers get bell notification | save@earth.org → alex |
@@ -167,6 +167,7 @@ npm run seed
 | Deployment role | Join flood mission → select **How can you help?** role | sam |
 | Partner NGOs | Mission hub → see **Red Cross Demo** as accepted partner | save@earth.org |
 | Invite partner | Enter verified NGO email → **Invite** | save@earth.org → redcross@demo.org |
+| Accept partner invite | Login **redcross@demo.org** → dashboard banner or bell → **Accept** | redcross@demo.org |
 
 ---
 
