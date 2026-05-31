@@ -35,6 +35,7 @@ const series = require('./routes/series');
 const instances = require('./routes/instances');
 const impactPosts = require('./routes/impactPosts');
 const impactComments = require('./routes/impactComments');
+const crisis = require('./routes/crisis');
 
 // Mount routers
 app.use('/api/auth', auth);
@@ -50,6 +51,7 @@ app.use('/api/series', series);
 app.use('/api/instances', instances);
 app.use('/api/impact-posts', impactPosts);
 app.use('/api/impact-comments', impactComments);
+app.use('/api/crisis', crisis);
 
 // Serve uploads
 const path = require('path');
