@@ -41,7 +41,9 @@ import { EventDiscussionSection } from '../../components/event/EventDiscussionSe
 import { impactFeedService } from '../../lib/impactFeed';
 import { resolveUploadUrl } from '../../lib/apiBase';
 import { EmergencyBadge } from '../../components/crisis/EmergencyBadge';
-import { DISASTER_LABELS } from '../../lib/crisis';
+import { DISASTER_LABELS, DEPLOYMENT_ROLES } from '../../lib/crisis';
+import { CrisisResourcesPanel } from '../../components/crisis/CrisisResourcesPanel';
+import { CrisisUpdatesTimeline } from '../../components/crisis/CrisisLiveOps';
 
 
 export default function EventDetail() {
@@ -61,6 +63,7 @@ export default function EventDetail() {
     const [isFull, setIsFull] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
     const [isRapidCheckingIn, setIsRapidCheckingIn] = useState(false);
+    const [deploymentRole, setDeploymentRole] = useState('');
     const [showAlert, setShowAlert] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
     const [canReview, setCanReview] = useState(false);
@@ -189,7 +192,11 @@ export default function EventDetail() {
         try {
             const result = isInstance
                 ? await instanceService.joinInstance(id, selectedShiftSlotId || undefined)
-                : await eventService.joinEvent(id, selectedShiftSlotId || undefined);
+                : await eventService.joinEvent(
+                      id,
+                      selectedShiftSlotId || undefined,
+                      event.missionMode === 'emergency' ? deploymentRole || undefined : undefined
+                  );
             if (result.membership === 'waitlisted') {
                 setMembership('waitlisted');
                 setWaitlistPosition(result.waitlistPosition ?? null);
@@ -550,6 +557,27 @@ export default function EventDetail() {
                             </section>
                         )}
 
+                        {isEmergency && (
+                            <CrisisResourcesPanel
+                                eventId={id!}
+                                immediateNeeds={event.crisis?.immediateNeeds}
+                            />
+                        )}
+
+                        {isEmergency && (
+                            <div className="rounded-2xl border border-rose-100 bg-white p-5">
+                                <CrisisUpdatesTimeline eventId={id!} compact />
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-3"
+                                    onClick={() => navigate(`/crisis/${id}/summary`)}
+                                >
+                                    View crisis summary
+                                </Button>
+                            </div>
+                        )}
+
                         {/* Description Section */}
                         <section className="space-y-6">
                             <CardContent className="p-6 space-y-4">
@@ -726,6 +754,25 @@ export default function EventDetail() {
                                                     <p className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-center">
                                                         You are #{waitlistPosition} on the waitlist
                                                     </p>
+                                                )}
+                                                {isEmergency && !hasJoined && !onWaitlist && (
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs font-bold text-rose-800 uppercase tracking-wide">
+                                                            How can you help?
+                                                        </label>
+                                                        <select
+                                                            className="w-full border border-rose-200 rounded-lg px-3 py-2 text-sm"
+                                                            value={deploymentRole}
+                                                            onChange={(e) => setDeploymentRole(e.target.value)}
+                                                        >
+                                                            <option value="">Select deployment role</option>
+                                                            {DEPLOYMENT_ROLES.map((role) => (
+                                                                <option key={role} value={role}>
+                                                                    {role}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
                                                 )}
                                                 <Button
                                                     className="w-full py-6 font-bold text-lg rounded-xl shadow-hive group"
