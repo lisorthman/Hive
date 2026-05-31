@@ -17,7 +17,8 @@ import {
     UserCheck,
     Download,
     UserX,
-    Sparkles
+    Sparkles,
+    AlertTriangle
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -368,6 +369,15 @@ export default function NGODashboard() {
                         >
                             <Plus className="h-5 w-5" />
                             Create New Event
+                        </Button>
+                        <Button
+                            size="lg"
+                            variant="outline"
+                            className="gap-2 border-rose-300 text-rose-700 hover:bg-rose-50"
+                            onClick={() => navigate('/ngo-crisis/create')}
+                        >
+                            <AlertTriangle className="h-5 w-5" />
+                            Launch Crisis Mission
                         </Button>
                         <Button
                             variant="outline"

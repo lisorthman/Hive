@@ -73,6 +73,11 @@ export function NotificationDropdown() {
         if (n.event?._id) {
             navigate(`/event/${n.event._id}`);
             setShowNotifications(false);
+            return;
+        }
+        if (n.type?.startsWith('crisis_')) {
+            navigate('/crisis');
+            setShowNotifications(false);
         }
     };
 

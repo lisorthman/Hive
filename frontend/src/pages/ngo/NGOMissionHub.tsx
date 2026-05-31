@@ -14,7 +14,10 @@ import {
     MapPin,
     Shield,
     Sparkles,
-    CheckCircle
+    CheckCircle,
+    AlertTriangle,
+    Radio,
+    Ban
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -25,6 +28,8 @@ import { attendanceService } from '../../lib/attendance';
 import { reviewService } from '../../lib/reviews';
 import { commentService } from '../../lib/comments';
 import { EventDiscussionSection } from '../../components/event/EventDiscussionSection';
+import { crisisService, DISASTER_LABELS } from '../../lib/crisis';
+import { EmergencyBadge } from '../../components/crisis/EmergencyBadge';
 
 function countThreadedComments(threads: any[]): number {
     if (!threads?.length) return 0;
@@ -43,6 +48,8 @@ export default function NGOMissionHub() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isCompleting, setIsCompleting] = useState(false);
+    const [isCrisisBusy, setIsCrisisBusy] = useState(false);
+    const [crisisMessage, setCrisisMessage] = useState<string | null>(null);
 
     useEffect(() => {
         if (!eventId) return;
@@ -104,6 +111,43 @@ export default function NGOMissionHub() {
         }
     };
 
+    const reloadEvent = async () => {
+        if (!eventId) return;
+        const ev = await eventService.getEvent(eventId);
+        setEvent(ev);
+    };
+
+    const handleBroadcastAlert = async () => {
+        if (!eventId) return;
+        setIsCrisisBusy(true);
+        setCrisisMessage(null);
+        try {
+            const result = await crisisService.broadcastAlert(eventId);
+            setCrisisMessage(`Alert sent to ${result?.notifiedCount ?? 'matching'} volunteers.`);
+        } catch (err: any) {
+            setCrisisMessage(err.message || 'Failed to broadcast alert');
+        } finally {
+            setIsCrisisBusy(false);
+        }
+    };
+
+    const handleCrisisStatus = async (status: 'active' | 'stand_down' | 'resolved') => {
+        if (!eventId) return;
+        const labels = { active: 'reactivate', stand_down: 'stand down', resolved: 'resolve' };
+        if (!window.confirm(`Confirm: ${labels[status]} this crisis mission?`)) return;
+        setIsCrisisBusy(true);
+        setCrisisMessage(null);
+        try {
+            await crisisService.updateStatus(eventId, status);
+            await reloadEvent();
+            setCrisisMessage(`Crisis status updated to ${status.replace('_', ' ')}.`);
+        } catch (err: any) {
+            setCrisisMessage(err.message || 'Failed to update crisis status');
+        } finally {
+            setIsCrisisBusy(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -149,6 +193,9 @@ export default function NGOMissionHub() {
                 <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                         <Badge variant="primary">{event.category}</Badge>
+                        {event.missionMode === 'emergency' && (
+                            <EmergencyBadge urgency={event.crisis?.urgency} />
+                        )}
                         <Badge variant="gray" className="capitalize border-slate-200">
                             {event.status}
                         </Badge>
@@ -206,6 +253,71 @@ export default function NGOMissionHub() {
                         }
                     />
                 </div>
+
+                {event.missionMode === 'emergency' && (
+                    <section className="rounded-2xl border border-rose-200 bg-rose-50/50 p-5 space-y-4">
+                        <h2 className="text-lg font-bold flex items-center gap-2 text-rose-900">
+                            <AlertTriangle className="h-5 w-5" />
+                            Crisis response controls
+                        </h2>
+                        <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <span className="text-slate-500">Disaster type</span>
+                                <p className="font-bold capitalize">
+                                    {DISASTER_LABELS[event.crisis?.disasterType] || event.crisis?.disasterType || '—'}
+                                </p>
+                            </div>
+                            <div>
+                                <span className="text-slate-500">Status</span>
+                                <p className="font-bold capitalize">{event.crisis?.crisisStatus || 'active'}</p>
+                            </div>
+                            {event.crisis?.immediateNeeds?.length > 0 && (
+                                <div className="sm:col-span-2">
+                                    <span className="text-slate-500">Immediate needs</span>
+                                    <p className="font-medium">{event.crisis.immediateNeeds.join(', ')}</p>
+                                </div>
+                            )}
+                        </div>
+                        {crisisMessage && (
+                            <p className="text-sm text-rose-800 bg-white border border-rose-100 rounded-lg px-3 py-2">
+                                {crisisMessage}
+                            </p>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                size="sm"
+                                className="gap-2 bg-rose-600 hover:bg-rose-700"
+                                onClick={handleBroadcastAlert}
+                                isLoading={isCrisisBusy}
+                                disabled={event.crisis?.crisisStatus !== 'active'}
+                            >
+                                <Radio className="h-4 w-4" /> Broadcast alert
+                            </Button>
+                            {event.crisis?.crisisStatus === 'active' && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-2 border-amber-300 text-amber-800"
+                                    onClick={() => handleCrisisStatus('stand_down')}
+                                    isLoading={isCrisisBusy}
+                                >
+                                    <Ban className="h-4 w-4" /> Stand down
+                                </Button>
+                            )}
+                            {event.crisis?.crisisStatus !== 'resolved' && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-2 border-emerald-300 text-emerald-800"
+                                    onClick={() => handleCrisisStatus('resolved')}
+                                    isLoading={isCrisisBusy}
+                                >
+                                    <CheckCircle className="h-4 w-4" /> Resolve crisis
+                                </Button>
+                            )}
+                        </div>
+                    </section>
+                )}
 
                 <section>
                     <h2 className="text-lg font-bold mb-3 flex items-center gap-2">

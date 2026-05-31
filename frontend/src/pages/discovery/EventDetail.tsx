@@ -17,7 +17,8 @@ import {
     Edit,
     Trash2,
     LogOut,
-    ClipboardList
+    ClipboardList,
+    Zap
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -39,6 +40,8 @@ import { EventReviewsSection } from '../../components/event/EventReviewsSection'
 import { EventDiscussionSection } from '../../components/event/EventDiscussionSection';
 import { impactFeedService } from '../../lib/impactFeed';
 import { resolveUploadUrl } from '../../lib/apiBase';
+import { EmergencyBadge } from '../../components/crisis/EmergencyBadge';
+import { DISASTER_LABELS } from '../../lib/crisis';
 
 
 export default function EventDetail() {
@@ -57,6 +60,7 @@ export default function EventDetail() {
     const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
     const [isFull, setIsFull] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
+    const [isRapidCheckingIn, setIsRapidCheckingIn] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
     const [canReview, setCanReview] = useState(false);
@@ -259,6 +263,21 @@ export default function EventDetail() {
         }
     };
 
+    const handleRapidCheckIn = async () => {
+        if (!id) return;
+        setIsRapidCheckingIn(true);
+        try {
+            await attendanceService.rapidCheckIn(id);
+            setAlertMessage('Rapid check-in successful — you are deployed on this crisis mission.');
+            setShowAlert(true);
+            setTimeout(() => setShowAlert(false), 5000);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsRapidCheckingIn(false);
+        }
+    };
+
     const hasJoined = membership === 'joined';
     const onWaitlist = membership === 'waitlisted';
     const shiftSlotsForPicker =
@@ -319,6 +338,12 @@ export default function EventDetail() {
 
     const orgId = (event.organization?._id || event.organization)?.toString();
     const isOwner = authService.getCurrentUser()?.id === orgId;
+    const isEmergency = event.missionMode === 'emergency';
+    const canRapidCheckIn =
+        isEmergency &&
+        hasJoined &&
+        event.crisis?.deploymentMode === 'rapid' &&
+        event.crisis?.crisisStatus === 'active';
 
     return (
         <div className="min-h-screen bg-hive-background pb-24 lg:pb-12">
@@ -370,6 +395,7 @@ export default function EventDetail() {
                         <section className="space-y-4">
                             <div className="flex flex-wrap gap-2">
                                 <Badge variant="primary" className="px-3 py-1 font-bold">{event.category}</Badge>
+                                {isEmergency && <EmergencyBadge urgency={event.crisis?.urgency} />}
                                 {isInstance && (
                                     <Badge variant="secondary" className="px-3 py-1 font-bold bg-violet-50 text-violet-700 border-violet-100">
                                         Recurring · RSVP this date
@@ -482,6 +508,44 @@ export default function EventDetail() {
                                             </button>
                                         );
                                     })}
+                                </div>
+                            </section>
+                        )}
+
+                        {isEmergency && event.crisis && (
+                            <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 space-y-3">
+                                <h2 className="text-lg font-bold text-rose-900 flex items-center gap-2">
+                                    <Zap className="h-5 w-5" /> Crisis deployment
+                                </h2>
+                                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <span className="text-rose-700/70 text-xs font-bold uppercase">Type</span>
+                                        <p className="font-bold">
+                                            {DISASTER_LABELS[event.crisis.disasterType] || event.crisis.disasterType}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-rose-700/70 text-xs font-bold uppercase">Status</span>
+                                        <p className="font-bold capitalize">{event.crisis.crisisStatus || 'active'}</p>
+                                    </div>
+                                    {event.crisis.affectedAreaName && (
+                                        <div>
+                                            <span className="text-rose-700/70 text-xs font-bold uppercase">Affected area</span>
+                                            <p className="font-medium">{event.crisis.affectedAreaName}</p>
+                                        </div>
+                                    )}
+                                    {event.crisis.immediateNeeds?.length > 0 && (
+                                        <div className="sm:col-span-2">
+                                            <span className="text-rose-700/70 text-xs font-bold uppercase">Immediate needs</span>
+                                            <p className="font-medium">{event.crisis.immediateNeeds.join(', ')}</p>
+                                        </div>
+                                    )}
+                                    {event.crisis.requiredSkills?.length > 0 && (
+                                        <div className="sm:col-span-2">
+                                            <span className="text-rose-700/70 text-xs font-bold uppercase">Skills needed</span>
+                                            <p className="font-medium">{event.crisis.requiredSkills.join(', ')}</p>
+                                        </div>
+                                    )}
                                 </div>
                             </section>
                         )}
@@ -698,6 +762,16 @@ export default function EventDetail() {
                                                     >
                                                         <LogOut className="h-4 w-4 mr-2" />
                                                         {onWaitlist ? 'Leave Waitlist' : 'Leave Mission'}
+                                                    </Button>
+                                                )}
+
+                                                {canRapidCheckIn && (
+                                                    <Button
+                                                        className="w-full py-4 font-bold rounded-xl bg-rose-600 hover:bg-rose-700"
+                                                        isLoading={isRapidCheckingIn}
+                                                        onClick={handleRapidCheckIn}
+                                                    >
+                                                        <Zap className="h-5 w-5 mr-2" /> Rapid check-in
                                                     </Button>
                                                 )}
                                             </div>

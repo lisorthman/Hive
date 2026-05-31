@@ -11,7 +11,8 @@ import {
     X,
     Navigation,
     Loader2,
-    ChevronLeft
+    ChevronLeft,
+    AlertTriangle
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -23,6 +24,7 @@ import { cn } from '../../lib/utils';
 import { eventService } from '../../lib/events';
 import { authService } from '../../lib/auth';
 import { missionPath } from '../../lib/missions';
+import { EmergencyBadge } from '../../components/crisis/EmergencyBadge';
 
 const CATEGORIES = ["All", "Environmental", "Social Work", "Education", "Healthcare", "Disaster Relief"];
 
@@ -148,6 +150,14 @@ export default function EventDiscovery() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 text-rose-600 border-rose-200 hover:bg-rose-50"
+                            onClick={() => navigate('/crisis')}
+                        >
+                            <AlertTriangle className="h-4 w-4" /> Crisis Hub
+                        </Button>
                         <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsFilterOpen(!isFilterOpen)}>
                             <Filter className="h-4 w-4" /> <span className="hidden xs:inline">Filters</span>
                         </Button>
@@ -346,6 +356,9 @@ function DiscoveryEventCard({
                     <div>
                         <div className="flex gap-2 mb-2 flex-wrap">
                             <Badge variant="primary" className="text-[10px] py-0 px-2">{event.category}</Badge>
+                            {event.missionMode === 'emergency' && (
+                                <EmergencyBadge urgency={event.crisis?.urgency} />
+                            )}
                             {event.missionType === 'instance' && (
                                 <Badge variant="secondary" className="text-[10px] py-0 px-2 bg-violet-50 text-violet-700 border-violet-100">
                                     Recurring
