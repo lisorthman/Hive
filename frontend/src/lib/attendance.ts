@@ -86,6 +86,20 @@ export const attendanceService = {
         }
     },
 
+    async rapidCheckIn(eventId: string) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/attendance/event/${eventId}/rapid-check-in`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Rapid check-in failed');
+        return data.data;
+    },
+
     async getVolunteerStats() {
         try {
             const token = localStorage.getItem('token');

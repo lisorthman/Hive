@@ -97,7 +97,8 @@ export const authService = {
             availability: data.data.availability,
             bio: data.data.bio
             ,
-            allowStoryTagging: data.data.allowStoryTagging
+            allowStoryTagging: data.data.allowStoryTagging,
+            emergencyProfile: data.data.emergencyProfile
         };
         localStorage.setItem('user', JSON.stringify(user));
         return user;
@@ -110,6 +111,12 @@ export const authService = {
         skills?: string[];
         availability?: string;
         allowStoryTagging?: boolean;
+        emergencyProfile?: {
+            availableForEmergencies?: boolean;
+            availabilityWindow?: 'anytime' | 'weekdays' | 'weekends';
+            maxRadiusKm?: number;
+            remoteSupportOk?: boolean;
+        };
     }) {
         const response = await fetch(`${API_URL}/auth/profile`, {
             method: 'PUT',
@@ -129,7 +136,8 @@ export const authService = {
             availability: data.data.availability,
             bio: data.data.bio
             ,
-            allowStoryTagging: data.data.allowStoryTagging
+            allowStoryTagging: data.data.allowStoryTagging,
+            emergencyProfile: data.data.emergencyProfile
         };
         localStorage.setItem('user', JSON.stringify(user));
         return user;

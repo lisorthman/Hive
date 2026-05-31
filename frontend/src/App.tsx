@@ -18,6 +18,8 @@ import ImpactResume from './pages/dashboard/ImpactResume'
 import NGOProfile from './pages/ngo/NGOProfile'
 import NGOMissionHub from './pages/ngo/NGOMissionHub'
 import VolunteerInsight from './pages/ngo/VolunteerInsight'
+import CrisisHub from './pages/crisis/CrisisHub'
+import CrisisMissionForm from './pages/ngo/CrisisMissionForm'
 import ImpactFeed from './pages/impact/ImpactFeed'
 
 function App() {
@@ -54,6 +56,16 @@ function App() {
         <Route path="/impact-feed" element={
           <ProtectedRoute allowedRoles={['volunteer', 'ngo', 'admin']}>
             <ImpactFeed />
+          </ProtectedRoute>
+        } />
+        <Route path="/crisis" element={
+          <ProtectedRoute allowedRoles={['volunteer', 'ngo', 'admin']}>
+            <CrisisHub />
+          </ProtectedRoute>
+        } />
+        <Route path="/ngo-crisis/create" element={
+          <ProtectedRoute allowedRoles={['ngo', 'admin']}>
+            <CrisisMissionForm />
           </ProtectedRoute>
         } />
         <Route path="/ngo/:id" element={<NGOProfile />} />
