@@ -157,16 +157,19 @@ export const eventService = {
         return data.data;
     },
 
-    async joinEvent(id: string, shiftSlotId?: string) {
+    async joinEvent(id: string, shiftSlotId?: string, deploymentRole?: string) {
         try {
             const token = localStorage.getItem('token');
+            const body: Record<string, string> = {};
+            if (shiftSlotId) body.shiftSlotId = shiftSlotId;
+            if (deploymentRole) body.deploymentRole = deploymentRole;
             const response = await fetch(`${API_URL}/events/${id}/join`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(shiftSlotId ? { shiftSlotId } : {})
+                body: JSON.stringify(body)
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to join event');
