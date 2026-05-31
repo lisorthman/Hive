@@ -157,12 +157,18 @@ export const eventService = {
         return data.data;
     },
 
-    async joinEvent(id: string, shiftSlotId?: string, deploymentRole?: string) {
+    async joinEvent(
+        id: string,
+        shiftSlotId?: string,
+        deploymentRole?: string,
+        safetyAcknowledged?: boolean
+    ) {
         try {
             const token = localStorage.getItem('token');
-            const body: Record<string, string> = {};
+            const body: Record<string, string | boolean> = {};
             if (shiftSlotId) body.shiftSlotId = shiftSlotId;
             if (deploymentRole) body.deploymentRole = deploymentRole;
+            if (safetyAcknowledged) body.safetyAcknowledged = true;
             const response = await fetch(`${API_URL}/events/${id}/join`, {
                 method: 'PUT',
                 headers: {

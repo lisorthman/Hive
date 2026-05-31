@@ -64,6 +64,7 @@ export default function EventDetail() {
     const [isJoining, setIsJoining] = useState(false);
     const [isRapidCheckingIn, setIsRapidCheckingIn] = useState(false);
     const [deploymentRole, setDeploymentRole] = useState('');
+    const [safetyAckChecked, setSafetyAckChecked] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
     const [canReview, setCanReview] = useState(false);
@@ -187,6 +188,10 @@ export default function EventDetail() {
             setError('Please select a shift time slot');
             return;
         }
+        if (event.missionMode === 'emergency' && !safetyAckChecked) {
+            setError('Please acknowledge that you understand field conditions before joining.');
+            return;
+        }
         setIsJoining(true);
         setError(null);
         try {
@@ -195,7 +200,8 @@ export default function EventDetail() {
                 : await eventService.joinEvent(
                       id,
                       selectedShiftSlotId || undefined,
-                      event.missionMode === 'emergency' ? deploymentRole || undefined : undefined
+                      event.missionMode === 'emergency' ? deploymentRole || undefined : undefined,
+                      event.missionMode === 'emergency' ? safetyAckChecked : undefined
                   );
             if (result.membership === 'waitlisted') {
                 setMembership('waitlisted');
@@ -402,7 +408,7 @@ export default function EventDetail() {
                         <section className="space-y-4">
                             <div className="flex flex-wrap gap-2">
                                 <Badge variant="primary" className="px-3 py-1 font-bold">{event.category}</Badge>
-                                {isEmergency && <EmergencyBadge urgency={event.crisis?.urgency} />}
+                                {isEmergency && <EmergencyBadge urgency={event.crisis?.urgencyLevel} />}
                                 {isInstance && (
                                     <Badge variant="secondary" className="px-3 py-1 font-bold bg-violet-50 text-violet-700 border-violet-100">
                                         Recurring · RSVP this date
@@ -774,6 +780,20 @@ export default function EventDetail() {
                                                         </select>
                                                     </div>
                                                 )}
+                                                {isEmergency && !hasJoined && !onWaitlist && (
+                                                    <label className="flex items-start gap-2 text-xs text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="mt-0.5"
+                                                            checked={safetyAckChecked}
+                                                            onChange={(e) => setSafetyAckChecked(e.target.checked)}
+                                                        />
+                                                        <span>
+                                                            I understand that emergency field conditions may be
+                                                            hazardous and I volunteer at my own discretion.
+                                                        </span>
+                                                    </label>
+                                                )}
                                                 <Button
                                                     className="w-full py-6 font-bold text-lg rounded-xl shadow-hive group"
                                                     isLoading={isJoining}
@@ -781,6 +801,7 @@ export default function EventDetail() {
                                                     disabled={
                                                         hasJoined ||
                                                         onWaitlist ||
+                                                        (isEmergency && !safetyAckChecked) ||
                                                         (event.useShiftSlots &&
                                                             !selectedShiftSlotId &&
                                                             !hasJoined)
@@ -906,6 +927,12 @@ export default function EventDetail() {
                             )}
                             isLoading={isJoining}
                             onClick={hasJoined || onWaitlist ? handleLeave : handleJoin}
+                            disabled={
+                                !hasJoined &&
+                                !onWaitlist &&
+                                isEmergency &&
+                                !safetyAckChecked
+                            }
                         >
                             {hasJoined ? (
                                 <div className="flex items-center gap-2">
