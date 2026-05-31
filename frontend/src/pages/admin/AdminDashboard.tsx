@@ -13,7 +13,8 @@ import {
     UserCheck,
     Settings,
     LogOut,
-    FileText
+    FileText,
+    AlertTriangle
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import { Logo } from '../../components/ui/Logo';
@@ -34,10 +35,11 @@ import { authService, API_URL } from '../../lib/auth';
 import { adminService } from '../../lib/admin';
 import { eventService } from '../../lib/events';
 import { PlatformEventsCalendar } from '../../components/calendar/PlatformEventsCalendar';
+import { crisisService } from '../../lib/crisis';
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'ngos' | 'users' | 'audit'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'ngos' | 'users' | 'audit' | 'crises'>('overview');
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [auditLoading, setAuditLoading] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -56,6 +58,8 @@ export default function AdminDashboard() {
     const [usersLoading, setUsersLoading] = useState(false);
     const [userSearch, setUserSearch] = useState('');
     const [impactReports, setImpactReports] = useState<any[]>([]);
+    const [activeCrises, setActiveCrises] = useState<any[]>([]);
+    const [crisesLoading, setCrisesLoading] = useState(false);
 
     const fetchPlatformStats = async () => {
         try {
@@ -112,6 +116,18 @@ export default function AdminDashboard() {
         }
     };
 
+    const fetchActiveCrises = async () => {
+        try {
+            setCrisesLoading(true);
+            setActiveCrises(await crisisService.getAdminOverview());
+        } catch (error) {
+            console.error('Failed to fetch active crises:', error);
+            setActiveCrises([]);
+        } finally {
+            setCrisesLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'ngos') {
             fetchNGOs();
@@ -124,6 +140,8 @@ export default function AdminDashboard() {
             fetchImpactReports();
         } else if (activeTab === 'users') {
             fetchAdminUsers();
+        } else if (activeTab === 'crises') {
+            fetchActiveCrises();
         }
     }, [activeTab, ngoFilter]);
 
@@ -133,6 +151,7 @@ export default function AdminDashboard() {
         fetchPlatformEvents();
         fetchAuditLogs();
         fetchImpactReports();
+        fetchActiveCrises();
     }, []);
 
     const fetchNGOs = async (statusOverride?: string) => {
@@ -205,6 +224,7 @@ export default function AdminDashboard() {
                     <SidebarLink icon={Building2} label="NGO Approvals" active={activeTab === 'ngos'} onClick={() => setActiveTab('ngos')} badge={ngoRequests.length.toString()} />
                     <SidebarLink icon={Users} label="User Roles" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
                     <SidebarLink icon={ShieldCheck} label="Audit Log" active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} />
+                    <SidebarLink icon={AlertTriangle} label="Active Crises" active={activeTab === 'crises'} onClick={() => setActiveTab('crises')} badge={activeCrises.length ? String(activeCrises.length) : undefined} />
                     <div className="pt-4 mt-4 border-t border-slate-100 space-y-1">
                         <SidebarLink icon={Settings} label="System Config" active={false} />
                         <SidebarLink
@@ -576,6 +596,60 @@ export default function AdminDashboard() {
                                         )}
                                     </TableBody>
                                 </Table>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {activeTab === 'crises' && (
+                        <Card className="border-slate-100">
+                            <CardContent className="p-0">
+                                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-bold text-hive-text-primary">National crisis oversight</h3>
+                                        <p className="text-xs text-hive-text-secondary mt-1">
+                                            Active and stand-down emergency missions across the platform.
+                                        </p>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={fetchActiveCrises} disabled={crisesLoading}>
+                                        Refresh
+                                    </Button>
+                                </div>
+                                {crisesLoading ? (
+                                    <p className="p-8 text-center text-sm text-hive-text-secondary">Loading crises…</p>
+                                ) : activeCrises.length === 0 ? (
+                                    <p className="p-8 text-center text-sm text-hive-text-secondary">No active crises.</p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Mission</TableHead>
+                                                <TableHead>NGO</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Deployed</TableHead>
+                                                <TableHead>Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {activeCrises.map((c: any) => (
+                                                <TableRow key={c._id}>
+                                                    <TableCell className="font-bold">{c.title}</TableCell>
+                                                    <TableCell>{c.ngoName || c.organization?.name}</TableCell>
+                                                    <TableCell className="capitalize">{c.crisis?.crisisStatus}</TableCell>
+                                                    <TableCell>{c.analytics?.volunteersDeployed ?? 0}</TableCell>
+                                                    <TableCell>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => navigate(`/ngo-mission/${c._id}`)}
+                                                        >
+                                                            Command center
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </CardContent>
                         </Card>
                     )}

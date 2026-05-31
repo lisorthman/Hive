@@ -11,17 +11,32 @@ import { EmergencyBadge } from '../../components/crisis/EmergencyBadge';
 import { getDashboardLabel, getDashboardPath } from '../../lib/dashboardPaths';
 import { authService } from '../../lib/auth';
 import { missionPath } from '../../lib/missions';
+import { Megaphone } from 'lucide-react';
 
 export default function CrisisHub() {
     const navigate = useNavigate();
     const user = authService.getCurrentUser();
     const [missions, setMissions] = useState<any[]>([]);
+    const [latestUpdates, setLatestUpdates] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
 
     const load = async () => {
         try {
             setLoading(true);
-            setMissions(await crisisService.getMap());
+            const data = await crisisService.getMap();
+            setMissions(data);
+            const updates: Record<string, string> = {};
+            await Promise.all(
+                (data || []).slice(0, 5).map(async (m: any) => {
+                    try {
+                        const u = await crisisService.getUpdates(m._id);
+                        if (u?.[0]?.message) updates[m._id] = u[0].message;
+                    } catch {
+                        /* ignore */
+                    }
+                })
+            );
+            setLatestUpdates(updates);
         } finally {
             setLoading(false);
         }
@@ -159,6 +174,22 @@ export default function CrisisHub() {
                                                 ))}
                                             </div>
                                         )}
+                                        {latestUpdates[m._id] && (
+                                            <p className="text-xs text-rose-300 flex items-start gap-1 pt-1 border-t border-slate-800">
+                                                <Megaphone className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                {latestUpdates[m._id]}
+                                            </p>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="text-[10px] text-slate-500 hover:text-rose-400 underline"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/crisis/${m._id}/summary`);
+                                            }}
+                                        >
+                                            Public summary →
+                                        </button>
                                     </CardContent>
                                 </Card>
                             ))}

@@ -76,8 +76,15 @@ export function NotificationDropdown() {
             return;
         }
         if (n.type?.startsWith('crisis_')) {
-            navigate('/crisis');
+            if (n.type === 'crisis_partner_invite' && n.event?._id) {
+                navigate(`/ngo-mission/${n.event._id}`);
+            } else if (n.event?._id) {
+                navigate(`/event/${n.event._id}`);
+            } else {
+                navigate('/crisis');
+            }
             setShowNotifications(false);
+            return;
         }
     };
 
