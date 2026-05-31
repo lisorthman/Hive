@@ -33,7 +33,10 @@ const NotificationSchema = new mongoose.Schema({
             'impact_story_liked',
             'impact_story_commented',
             'impact_contribution_pending',
-            'impact_contribution_approved'
+            'impact_contribution_approved',
+            'crisis_alert',
+            'crisis_stand_down',
+            'crisis_resolved'
         ],
         default: 'volunteer_joined'
     },

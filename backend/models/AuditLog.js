@@ -26,7 +26,8 @@ const auditLogSchema = new mongoose.Schema({
             'user_removed',
             'impact_post_deleted',
             'impact_comment_deleted',
-            'impact_content_flagged'
+            'impact_content_flagged',
+            'crisis_status_updated'
         ],
         required: true
     },
