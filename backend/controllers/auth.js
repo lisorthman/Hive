@@ -264,7 +264,7 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
     try {
-        const allowed = ['name', 'bio', 'interests', 'skills', 'availability', 'allowStoryTagging'];
+        const allowed = ['name', 'bio', 'interests', 'skills', 'availability', 'allowStoryTagging', 'emergencyProfile'];
         const updates = {};
         for (const key of allowed) {
             if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -275,6 +275,9 @@ exports.updateProfile = async (req, res) => {
         }
         if (updates.skills && !Array.isArray(updates.skills)) {
             return res.status(400).json({ success: false, error: 'skills must be an array' });
+        }
+        if (updates.emergencyProfile && typeof updates.emergencyProfile !== 'object') {
+            return res.status(400).json({ success: false, error: 'emergencyProfile must be an object' });
         }
 
         const user = await User.findByIdAndUpdate(req.user.id, updates, {
@@ -306,7 +309,8 @@ const sendTokenResponse = (user, statusCode, res) => {
             skills: user.skills,
             availability: user.availability,
             bio: user.bio,
-            allowStoryTagging: user.allowStoryTagging
+            allowStoryTagging: user.allowStoryTagging,
+            emergencyProfile: user.emergencyProfile
         }
     });
 };
