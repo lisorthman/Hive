@@ -7,6 +7,7 @@ const Notification = require('../models/Notification');
 const { promoteFromWaitlist } = require('../utils/waitlist');
 const notifyEventVolunteers = require('../utils/notifyEventVolunteers');
 const { joinMission, leaveMission, getParticipation } = require('../utils/shiftSlots');
+const { sendCrisisAlerts } = require('../utils/crisisAlerts');
 const {
     fetchDiscoveryFeed,
     fetchJoinedMissions,
@@ -184,7 +185,40 @@ exports.createEvent = async (req, res) => {
             }));
         }
 
+        if (req.body.missionMode === 'emergency') {
+            if (req.user.role === 'ngo' && req.user.verificationStatus !== 'verified') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Only verified NGOs can create emergency missions'
+                });
+            }
+            const crisis = req.body.crisis || {};
+            if (!crisis.disasterType) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'disasterType is required for emergency missions'
+                });
+            }
+            req.body.category = req.body.category || 'Disaster Relief';
+            req.body.status = 'ongoing';
+            req.body.crisis = {
+                urgencyLevel: crisis.urgencyLevel || 'high',
+                disasterType: crisis.disasterType,
+                responseDeadline: crisis.responseDeadline || null,
+                affectedAreaName: crisis.affectedAreaName || req.body.location?.name || '',
+                radiusKm: crisis.radiusKm || 25,
+                immediateNeeds: crisis.immediateNeeds || [],
+                requiredSkills: crisis.requiredSkills || [],
+                deploymentMode: crisis.deploymentMode || 'rapid',
+                crisisStatus: 'active'
+            };
+        }
+
         const event = await Event.create(req.body);
+
+        if (event.missionMode === 'emergency') {
+            await sendCrisisAlerts(event, req.user);
+        }
 
         res.status(201).json({
             success: true,
