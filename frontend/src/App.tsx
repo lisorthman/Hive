@@ -19,6 +19,7 @@ import NGOProfile from './pages/ngo/NGOProfile'
 import NGOMissionHub from './pages/ngo/NGOMissionHub'
 import VolunteerInsight from './pages/ngo/VolunteerInsight'
 import CrisisHub from './pages/crisis/CrisisHub'
+import CrisisSummary from './pages/crisis/CrisisSummary'
 import CrisisMissionForm from './pages/ngo/CrisisMissionForm'
 import ImpactFeed from './pages/impact/ImpactFeed'
 
@@ -63,6 +64,7 @@ function App() {
             <CrisisHub />
           </ProtectedRoute>
         } />
+        <Route path="/crisis/:eventId/summary" element={<CrisisSummary />} />
         <Route path="/ngo-crisis/create" element={
           <ProtectedRoute allowedRoles={['ngo', 'admin']}>
             <CrisisMissionForm />
