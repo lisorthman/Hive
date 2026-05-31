@@ -269,7 +269,7 @@ const main = async () => {
             status: 'upcoming',
             missionMode: 'emergency',
             crisis: {
-                urgency: 'critical',
+                urgencyLevel: 'critical',
                 disasterType: 'flood',
                 responseDeadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
                 affectedAreaName: 'Kolonnawa & surrounding wards',

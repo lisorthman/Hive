@@ -241,7 +241,7 @@ export default function NGOMissionHub() {
                     <div className="flex flex-wrap gap-2">
                         <Badge variant="primary">{event.category}</Badge>
                         {event.missionMode === 'emergency' && (
-                            <EmergencyBadge urgency={event.crisis?.urgency} />
+                            <EmergencyBadge urgency={event.crisis?.urgencyLevel} />
                         )}
                         <Badge variant="gray" className="capitalize border-slate-200">
                             {event.status}

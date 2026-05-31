@@ -357,7 +357,7 @@ function DiscoveryEventCard({
                         <div className="flex gap-2 mb-2 flex-wrap">
                             <Badge variant="primary" className="text-[10px] py-0 px-2">{event.category}</Badge>
                             {event.missionMode === 'emergency' && (
-                                <EmergencyBadge urgency={event.crisis?.urgency} />
+                                <EmergencyBadge urgency={event.crisis?.urgencyLevel} />
                             )}
                             {event.missionType === 'instance' && (
                                 <Badge variant="secondary" className="text-[10px] py-0 px-2 bg-violet-50 text-violet-700 border-violet-100">
