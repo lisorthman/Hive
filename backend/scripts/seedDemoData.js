@@ -17,6 +17,8 @@ const EventReview = require('../models/EventReview');
 const EventComment = require('../models/EventComment');
 const ImpactPost = require('../models/ImpactPost');
 const ImpactComment = require('../models/ImpactComment');
+const CrisisResourceRequest = require('../models/CrisisResourceRequest');
+const CrisisUpdate = require('../models/CrisisUpdate');
 const generateSeriesInstances = require('../utils/generateSeriesInstances');
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -109,6 +111,19 @@ const main = async () => {
                 verificationDocument: 'uploads/seed-demo-ngo.pdf',
                 accountStatus: 'active',
                 bio: 'Awaiting admin approval — use to test NGO verification flow.'
+            }
+        });
+
+        const redCross = await upsertUser({
+            email: 'redcross@demo.org',
+            name: 'Red Cross Demo',
+            password: DEMO_PASSWORD,
+            role: 'ngo',
+            fields: {
+                verificationStatus: 'verified',
+                verificationDocument: 'uploads/seed-demo-ngo.pdf',
+                accountStatus: 'active',
+                bio: 'Partner NGO for crisis collaboration demos.'
             }
         });
 
@@ -265,6 +280,60 @@ const main = async () => {
                 crisisStatus: 'active'
             }
         });
+
+        floodRelief.crisis.partnerNgos = [{ ngo: redCross._id, status: 'accepted' }];
+        await floodRelief.save();
+
+        await CrisisResourceRequest.deleteMany({ event: floodRelief._id });
+        await CrisisResourceRequest.create([
+            {
+                event: floodRelief._id,
+                ngo: ngo._id,
+                item: 'Food packs',
+                quantityNeeded: 500,
+                unit: 'packs',
+                priority: 'critical',
+                pledges: [{ user: sam._id, quantity: 50, note: 'Local bakery donation' }]
+            },
+            {
+                event: floodRelief._id,
+                ngo: ngo._id,
+                item: 'Blankets',
+                quantityNeeded: 200,
+                unit: 'units',
+                priority: 'high'
+            },
+            {
+                event: floodRelief._id,
+                ngo: ngo._id,
+                item: 'Water bottles',
+                quantityNeeded: 1000,
+                unit: 'bottles',
+                priority: 'high'
+            }
+        ]);
+        console.log('  Crisis resources + Red Cross partner on flood mission');
+
+        await CrisisUpdate.deleteMany({ event: floodRelief._id });
+        await CrisisUpdate.create([
+            {
+                event: floodRelief._id,
+                author: ngo._id,
+                message: 'Shelter at Kolonnawa school reached 80% capacity. More blankets urgently needed.',
+                isPinned: true
+            },
+            {
+                event: floodRelief._id,
+                author: ngo._id,
+                message: 'First sandbagging team deployed. Water levels stabilizing in Ward 3.'
+            },
+            {
+                event: floodRelief._id,
+                author: ngo._id,
+                message: 'Food distribution started — 200 packs handed out in the last hour.'
+            }
+        ]);
+        console.log('  3 live situation updates on flood mission');
 
         // ── 3) Recurring series ─────────────────────────────────────────────
         console.log('\n3) Recurring series (Food Bank Fridays)');
@@ -432,6 +501,7 @@ const main = async () => {
         console.log('ACCOUNTS');
         console.log('  Admin (verify NGOs, audit, moderation):  admin@gmail.com');
         console.log('  NGO verified (missions, attendance, stories): save@earth.org');
+        console.log('  NGO partner (crisis collaboration):        redcross@demo.org');
         console.log('  NGO pending (admin approval test):       pending@ngo.org');
         console.log('  Volunteer (main tester):                 alex@volunteer.com');
         console.log('  Volunteer (tagging OFF):                 maya@volunteer.com');

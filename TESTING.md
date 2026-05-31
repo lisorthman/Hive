@@ -155,6 +155,35 @@ npm run seed
 
 ---
 
+### Crisis Hub (Phase E-2)
+
+| Step | How to test | Account |
+|------|-------------|---------|
+| Matched volunteers | `/ngo-mission/<flood-id>` → see match count before broadcast | save@earth.org |
+| Targeted alert | Toggle **Target only volunteers with required skills** → broadcast | save@earth.org |
+| Resource requests | Mission hub or event page → view food/blanket/water needs | alex |
+| Pledge resources | Event detail → **Pledge support** on a resource | sam@volunteer.com |
+| Post new need | Mission hub → **Post resource need** | save@earth.org |
+| Deployment role | Join flood mission → select **How can you help?** role | sam |
+| Partner NGOs | Mission hub → see **Red Cross Demo** as accepted partner | save@earth.org |
+| Invite partner | Enter verified NGO email → **Invite** | save@earth.org → redcross@demo.org |
+
+---
+
+### Crisis Hub (Phase E-3)
+
+| Step | How to test | Account |
+|------|-------------|---------|
+| Live updates | Mission hub → post situation update → volunteers see on event page | save@earth.org |
+| Update notification | Joined volunteer receives **crisis_update** bell notification | alex |
+| Emergency analytics | Mission hub → view deployed count, hours, response times | save@earth.org |
+| Public summary | `/crisis/<flood-id>/summary` — transparency page (no login required) | anyone |
+| Crisis Hub feed | `/crisis` — latest update snippet on mission card | alex |
+| Resolve + draft | Mission hub → **Resolve crisis** → prompt to publish impact story | save@earth.org |
+| Admin oversight | `/admin` → **Active Crises** tab → national view | admin@gmail.com |
+
+---
+
 ### Admin
 
 | Step | How to test | Account |
@@ -175,7 +204,7 @@ npm run seed
 | **Tree Planting** | Upcoming, Maya joined, open spots |
 | **First Aid Workshop** | Capacity 1 — Alex joined, **Maya waitlisted** |
 | **Food Bank Friday** | Recurring series with instances, Sam on first instance |
-| **Flood Relief — Colombo** | Active emergency, Alex joined, rapid check-in enabled |
+| **Flood Relief — Colombo** | Active emergency, Alex joined, rapid check-in, 3 resource requests, Red Cross partner |
 | **Impact posts** | 1 public (tags Alex), 1 community-only, 1 pending Maya contribution |
 | **Pending NGO** | `pending@ngo.org` for admin approval flow |
 
