@@ -28,7 +28,14 @@ const fetchDiscoveryFeed = async () => {
         ...instances.map((i) => toFeedItem(i, 'instance'))
     ];
 
-    feed.sort((a, b) => new Date(a.date) - new Date(b.date));
+    feed.sort((a, b) => {
+        const aEmergency =
+            a.missionMode === 'emergency' && a.crisis?.crisisStatus === 'active' ? 1 : 0;
+        const bEmergency =
+            b.missionMode === 'emergency' && b.crisis?.crisisStatus === 'active' ? 1 : 0;
+        if (bEmergency !== aEmergency) return bEmergency - aEmergency;
+        return new Date(a.date) - new Date(b.date);
+    });
     return feed;
 };
 
