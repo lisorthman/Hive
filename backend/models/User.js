@@ -73,6 +73,16 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: 'ImpactPost'
     }],
+    emergencyProfile: {
+        availableForEmergencies: { type: Boolean, default: false },
+        availabilityWindow: {
+            type: String,
+            enum: ['anytime', 'weekdays', 'weekends'],
+            default: 'anytime'
+        },
+        maxRadiusKm: { type: Number, default: 25, min: 1, max: 200 },
+        remoteSupportOk: { type: Boolean, default: false }
+    },
     emailVerified: {
         type: Boolean,
         default: function () {
