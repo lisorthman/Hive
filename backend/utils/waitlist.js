@@ -1,16 +1,23 @@
 const Event = require('../models/Event');
 const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
+const { sortEmergencyWaitlist } = require('./matchCrisisVolunteers');
 
 /**
- * Promote the first volunteer on the waitlist into volunteersJoined.
+ * Promote the best-matched volunteer from the waitlist (skill-ranked for emergencies).
  * Returns the promoted user id or null.
  */
 const promoteFromWaitlist = async (event) => {
     if (!event.waitlist?.length) return null;
     if (event.volunteersJoined.length >= event.capacity) return null;
 
-    const promotedId = event.waitlist.shift();
+    let waitlist =
+        event.missionMode === 'emergency'
+            ? await sortEmergencyWaitlist(event)
+            : [...event.waitlist];
+
+    const promotedId = waitlist.shift();
+    event.waitlist = waitlist;
     event.volunteersJoined.push(promotedId);
     await event.save();
 

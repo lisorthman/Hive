@@ -361,7 +361,11 @@ exports.joinEvent = async (req, res) => {
                     event: event._id,
                     volunteer: req.user.id,
                     shiftSlotId: result.shiftSlotId || null,
-                    status: 'joined'
+                    status: 'joined',
+                    deploymentRole:
+                        event.missionMode === 'emergency' && req.body.deploymentRole
+                            ? String(req.body.deploymentRole).trim().slice(0, 80)
+                            : null
                 });
             } catch (error) {
                 if (error.code !== 11000) {
