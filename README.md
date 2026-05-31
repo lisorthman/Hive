@@ -48,6 +48,8 @@ cd backend && npm run seed:demo
 
 Feed: `http://localhost:5173/impact-feed` — volunteers can use **My missions** for stories tied to their work.
 
+**Full QA:** run `npm run seed:demo` in `backend`, then follow [TESTING.md](./TESTING.md).
+
 ## Tech stack
 
 | Layer | Stack |
