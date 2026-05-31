@@ -31,6 +31,7 @@ import { reportService } from '../../lib/reports';
 import { cn } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
 import { impactFeedService } from '../../lib/impactFeed';
+import { crisisService } from '../../lib/crisis';
 
 export default function NGODashboard() {
     const navigate = useNavigate();
@@ -56,6 +57,7 @@ export default function NGODashboard() {
     const [removeMessage, setRemoveMessage] = useState('');
     const [myImpactPosts, setMyImpactPosts] = useState<any[]>([]);
     const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+    const [partnerInviteBusy, setPartnerInviteBusy] = useState<string | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const fetchEvents = async () => {
@@ -139,6 +141,22 @@ export default function NGODashboard() {
             setUnreadCount(0);
         } catch (error) {
             console.error('Failed to mark all as read:', error);
+        }
+    };
+
+    const partnerInvites = notifications.filter(
+        (n) => n.type === 'crisis_partner_invite' && (n.event?._id || n.event)
+    );
+
+    const handlePartnerInvite = async (eventId: string, response: 'accepted' | 'declined') => {
+        setPartnerInviteBusy(eventId);
+        try {
+            await crisisService.respondPartnerInvite(eventId, response);
+            await fetchNotifications();
+        } catch (err: any) {
+            alert(err.message || 'Failed to respond to invite');
+        } finally {
+            setPartnerInviteBusy(null);
         }
     };
 
@@ -271,14 +289,18 @@ export default function NGODashboard() {
                                             </div>
                                         ) : (
                                             <div className="divide-y divide-slate-50">
-                                                {notifications.map((n) => (
+                                                {notifications.map((n) => {
+                                                    const eventId = n.event?._id || n.event;
+                                                    const isPartnerInvite = n.type === 'crisis_partner_invite' && eventId;
+                                                    return (
                                                     <div
                                                         key={n._id}
                                                         className={cn(
-                                                            "p-4 hover:bg-slate-50 transition-colors cursor-pointer relative",
-                                                            !n.isRead && "bg-blue-50/30"
+                                                            "p-4 hover:bg-slate-50 transition-colors relative",
+                                                            !n.isRead && "bg-blue-50/30",
+                                                            !isPartnerInvite && "cursor-pointer"
                                                         )}
-                                                        onClick={() => markAsRead(n._id)}
+                                                        onClick={() => !isPartnerInvite && markAsRead(n._id)}
                                                     >
                                                         {!n.isRead && (
                                                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-hive-primary" />
@@ -300,10 +322,38 @@ export default function NGODashboard() {
                                                                     <Clock className="h-3 w-3" />
                                                                     {new Date(n.createdAt).toLocaleDateString()}
                                                                 </div>
+                                                                {isPartnerInvite && (
+                                                                    <div className="flex gap-2 pt-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="h-7 text-xs"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handlePartnerInvite(eventId, 'accepted');
+                                                                            }}
+                                                                            isLoading={partnerInviteBusy === eventId}
+                                                                        >
+                                                                            Accept
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-7 text-xs"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handlePartnerInvite(eventId, 'declined');
+                                                                            }}
+                                                                            disabled={partnerInviteBusy === eventId}
+                                                                        >
+                                                                            Decline
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
@@ -328,6 +378,52 @@ export default function NGODashboard() {
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+                {partnerInvites.length > 0 && (
+                    <Card className="border-rose-200 bg-rose-50/50 mb-8">
+                        <CardContent className="p-5 space-y-3">
+                            <h2 className="font-bold text-rose-900 flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5" />
+                                Crisis collaboration invites
+                            </h2>
+                            {partnerInvites.map((n) => {
+                                const eventId = n.event?._id || n.event;
+                                return (
+                                    <div
+                                        key={n._id}
+                                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-rose-100 rounded-xl p-4"
+                                    >
+                                        <div>
+                                            <p className="text-sm text-slate-800">{n.message}</p>
+                                            {n.event?.title && (
+                                                <p className="text-xs font-bold text-rose-700 mt-1">
+                                                    {n.event.title}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                            <Button
+                                                size="sm"
+                                                onClick={() => handlePartnerInvite(eventId, 'accepted')}
+                                                isLoading={partnerInviteBusy === eventId}
+                                            >
+                                                Accept
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handlePartnerInvite(eventId, 'declined')}
+                                                disabled={partnerInviteBusy === eventId}
+                                            >
+                                                Decline
+                                            </Button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
+                )}
+
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>
                         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Organization Dashboard</h1>
