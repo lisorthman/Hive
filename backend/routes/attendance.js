@@ -4,6 +4,7 @@ const {
     updateAttendanceManual,
     generateCheckInCode,
     checkInVolunteer,
+    rapidCheckInVolunteer,
     getMyAttendanceStatus,
     getVolunteerStats,
     getVolunteerStatsForOrg,
@@ -24,6 +25,12 @@ router.get(
 );
 router.get('/leaderboard', protect, getLeaderboard);
 router.post('/event/:eventId/check-in', protect, authorize('volunteer', 'admin'), checkInVolunteer);
+router.post(
+    '/event/:eventId/rapid-check-in',
+    protect,
+    authorize('volunteer', 'admin'),
+    rapidCheckInVolunteer
+);
 router.get('/event/:eventId/my-status', protect, getMyAttendanceStatus);
 
 // NGO / Admin routes

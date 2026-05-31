@@ -153,6 +153,68 @@ exports.checkInVolunteer = async (req, res) => {
     }
 };
 
+// @desc    Rapid check-in for emergency deployment (no code required)
+// @route   POST /api/attendance/event/:eventId/rapid-check-in
+// @access  Private (Volunteer)
+exports.rapidCheckInVolunteer = async (req, res) => {
+    try {
+        const event = await Event.findById(req.params.eventId);
+        if (!event) {
+            return res.status(404).json({ success: false, error: 'Event not found' });
+        }
+        if (event.missionMode !== 'emergency' || event.crisis?.deploymentMode !== 'rapid') {
+            return res.status(400).json({
+                success: false,
+                error: 'Rapid check-in is only available for emergency rapid-deployment missions'
+            });
+        }
+        if (event.crisis?.crisisStatus !== 'active') {
+            return res.status(400).json({
+                success: false,
+                error: 'This crisis mission is not accepting deployments'
+            });
+        }
+
+        const joined = event.volunteersJoined.some(
+            (id) => id.toString() === req.user.id.toString()
+        );
+        if (!joined) {
+            return res.status(403).json({
+                success: false,
+                error: 'Join the emergency mission before rapid check-in'
+            });
+        }
+
+        let attendance = await Attendance.findOne({
+            event: req.params.eventId,
+            volunteer: req.user.id
+        });
+
+        if (!attendance) {
+            attendance = await Attendance.create({
+                event: req.params.eventId,
+                volunteer: req.user.id,
+                shiftSlotId: 'default',
+                status: 'checked-in',
+                checkedInAt: new Date(),
+                hoursWorked: 0
+            });
+        } else {
+            attendance.status = 'checked-in';
+            attendance.checkedInAt = new Date();
+            await attendance.save();
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Rapid deployment check-in successful',
+            data: attendance
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
 // @desc    Get current volunteer's attendance status for an event
 // @route   GET /api/attendance/event/:eventId/my-status
 // @access  Private
