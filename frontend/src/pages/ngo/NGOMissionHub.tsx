@@ -30,6 +30,9 @@ import { commentService } from '../../lib/comments';
 import { EventDiscussionSection } from '../../components/event/EventDiscussionSection';
 import { crisisService, DISASTER_LABELS } from '../../lib/crisis';
 import { EmergencyBadge } from '../../components/crisis/EmergencyBadge';
+import { CrisisResourcesPanel } from '../../components/crisis/CrisisResourcesPanel';
+import { CrisisUpdatesTimeline, CrisisAnalyticsPanel } from '../../components/crisis/CrisisLiveOps';
+import { Input } from '../../components/ui/Input';
 
 function countThreadedComments(threads: any[]): number {
     if (!threads?.length) return 0;
@@ -50,6 +53,9 @@ export default function NGOMissionHub() {
     const [isCompleting, setIsCompleting] = useState(false);
     const [isCrisisBusy, setIsCrisisBusy] = useState(false);
     const [crisisMessage, setCrisisMessage] = useState<string | null>(null);
+    const [matchedVolunteers, setMatchedVolunteers] = useState<any[]>([]);
+    const [skillsOnlyBroadcast, setSkillsOnlyBroadcast] = useState(false);
+    const [partnerEmail, setPartnerEmail] = useState('');
 
     useEffect(() => {
         if (!eventId) return;
@@ -85,6 +91,17 @@ export default function NGOMissionHub() {
 
         load();
     }, [eventId, user?.id, user?.role]);
+
+    useEffect(() => {
+        if (!eventId || !event || event.missionMode !== 'emergency') return;
+        crisisService
+            .getMatchedVolunteers(eventId, {
+                skillsOnly: skillsOnlyBroadcast,
+                skills: event.crisis?.requiredSkills?.join(',') || ''
+            })
+            .then(setMatchedVolunteers)
+            .catch(() => setMatchedVolunteers([]));
+    }, [eventId, event, skillsOnlyBroadcast]);
 
     const checkedInCount = useMemo(
         () => attendance.filter((a) => a.status === 'checked-in').length,
@@ -122,10 +139,32 @@ export default function NGOMissionHub() {
         setIsCrisisBusy(true);
         setCrisisMessage(null);
         try {
-            const result = await crisisService.broadcastAlert(eventId);
-            setCrisisMessage(`Alert sent to ${result?.notifiedCount ?? 'matching'} volunteers.`);
+            const result = await crisisService.broadcastAlert(eventId, {
+                skillsOnly: skillsOnlyBroadcast,
+                targetSkills: event?.crisis?.requiredSkills,
+                enforceRadius: true
+            });
+            setCrisisMessage(
+                `Alert sent to ${result?.notifiedCount ?? result?.sent ?? 0} matched volunteers.`
+            );
         } catch (err: any) {
             setCrisisMessage(err.message || 'Failed to broadcast alert');
+        } finally {
+            setIsCrisisBusy(false);
+        }
+    };
+
+    const handleInvitePartner = async () => {
+        if (!eventId || !partnerEmail.trim()) return;
+        setIsCrisisBusy(true);
+        setCrisisMessage(null);
+        try {
+            await crisisService.invitePartner(eventId, partnerEmail.trim());
+            setPartnerEmail('');
+            await reloadEvent();
+            setCrisisMessage('Partner NGO invited.');
+        } catch (err: any) {
+            setCrisisMessage(err.message || 'Failed to invite partner');
         } finally {
             setIsCrisisBusy(false);
         }
@@ -138,8 +177,16 @@ export default function NGOMissionHub() {
         setIsCrisisBusy(true);
         setCrisisMessage(null);
         try {
-            await crisisService.updateStatus(eventId, status);
+            const result = await crisisService.updateStatus(eventId, status);
             await reloadEvent();
+            if (status === 'resolved' && result.impactDraft) {
+                const go = window.confirm(
+                    `Crisis resolved. Open Impact Feed to publish the auto-generated crisis story draft?`
+                );
+                if (go) {
+                    navigate(`/impact-feed?eventId=${eventId}`);
+                }
+            }
             setCrisisMessage(`Crisis status updated to ${status.replace('_', ' ')}.`);
         } catch (err: any) {
             setCrisisMessage(err.message || 'Failed to update crisis status');
@@ -283,6 +330,20 @@ export default function NGOMissionHub() {
                                 {crisisMessage}
                             </p>
                         )}
+                        <p className="text-sm text-rose-900">
+                            <strong>{matchedVolunteers.length}</strong> volunteers match this crisis
+                            {skillsOnlyBroadcast && event.crisis?.requiredSkills?.length
+                                ? ` (skills: ${event.crisis.requiredSkills.join(', ')})`
+                                : ''}
+                        </p>
+                        <label className="flex items-center gap-2 text-sm text-rose-900">
+                            <input
+                                type="checkbox"
+                                checked={skillsOnlyBroadcast}
+                                onChange={(e) => setSkillsOnlyBroadcast(e.target.checked)}
+                            />
+                            Target only volunteers with required skills
+                        </label>
                         <div className="flex flex-wrap gap-2">
                             <Button
                                 size="sm"
@@ -316,6 +377,44 @@ export default function NGOMissionHub() {
                                 </Button>
                             )}
                         </div>
+                        {(event.crisis?.partnerNgos?.length ?? 0) > 0 && (
+                            <div className="text-sm">
+                                <span className="text-slate-500">Partner NGOs</span>
+                                <ul className="mt-1 space-y-1">
+                                    {event.crisis.partnerNgos.map((p: any, i: number) => (
+                                        <li key={i} className="font-medium capitalize">
+                                            {p.ngo?.name || p.ngo} — {p.status}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        <div className="flex gap-2 items-end pt-2 border-t border-rose-100">
+                            <Input
+                                label="Invite partner NGO (verified email)"
+                                placeholder="partner@ngo.org"
+                                value={partnerEmail}
+                                onChange={(e) => setPartnerEmail(e.target.value)}
+                            />
+                            <Button size="sm" variant="outline" onClick={handleInvitePartner} isLoading={isCrisisBusy}>
+                                Invite
+                            </Button>
+                        </div>
+                        <CrisisResourcesPanel
+                            eventId={eventId!}
+                            canManage
+                            immediateNeeds={event.crisis?.immediateNeeds}
+                        />
+                        <CrisisAnalyticsPanel eventId={eventId!} />
+                        <CrisisUpdatesTimeline eventId={eventId!} canPost />
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => navigate(`/crisis/${eventId}/summary`)}
+                        >
+                            View public crisis summary
+                        </Button>
                     </section>
                 )}
 
