@@ -65,6 +65,48 @@ const eventSchema = new mongoose.Schema({
             ref: 'User'
         }
     ],
+    missionMode: {
+        type: String,
+        enum: ['normal', 'emergency'],
+        default: 'normal'
+    },
+    crisis: {
+        urgencyLevel: {
+            type: String,
+            enum: ['low', 'medium', 'high', 'critical'],
+            default: 'medium'
+        },
+        disasterType: {
+            type: String,
+            enum: [
+                'flood',
+                'landslide',
+                'cyclone',
+                'wildfire',
+                'earthquake',
+                'medical',
+                'food_shortage',
+                'shelter',
+                'other'
+            ],
+            default: 'other'
+        },
+        responseDeadline: { type: Date, default: null },
+        affectedAreaName: { type: String, default: '' },
+        radiusKm: { type: Number, default: 25 },
+        immediateNeeds: [{ type: String, trim: true }],
+        requiredSkills: [{ type: String, trim: true }],
+        deploymentMode: {
+            type: String,
+            enum: ['standard', 'rapid'],
+            default: 'rapid'
+        },
+        crisisStatus: {
+            type: String,
+            enum: ['active', 'stand_down', 'resolved'],
+            default: 'active'
+        }
+    },
     status: {
         type: String,
         enum: ['upcoming', 'ongoing', 'completed', 'cancelled'],
@@ -93,5 +135,7 @@ const eventSchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+eventSchema.index({ missionMode: 1, 'crisis.crisisStatus': 1 });
 
 module.exports = mongoose.model('Event', eventSchema);
