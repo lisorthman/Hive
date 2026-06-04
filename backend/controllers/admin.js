@@ -131,7 +131,12 @@ exports.getAdminUsers = async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit, 10) || 100, 200);
         const role = req.query.role;
 
-        const query = role ? { role } : {};
+        const query = {
+            $nor: [{ role: 'ngo', verificationStatus: 'pending' }]
+        };
+        if (role) {
+            query.role = role;
+        }
         const users = await User.find(query)
             .select('name email role verificationStatus accountStatus createdAt')
             .sort('-createdAt')

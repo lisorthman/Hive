@@ -387,23 +387,30 @@ exports.getVolunteerStats = async (req, res) => {
 
         const badges = calcBadges(joinedCount, checkedInCount, totalHours, checkedInCategories);
 
-        const recentHistory = checkedIn
-            .map((record) => {
-                const mission = record.event || record.eventInstance;
-                return {
-                    attendanceId: record._id,
-                    missionType: record.eventInstance ? 'instance' : 'event',
-                    missionId: mission?._id || null,
-                    title: mission?.title || 'Mission',
-                    ngoName: mission?.ngoName || '',
-                    category: mission?.category || 'Other',
-                    date: mission?.date || record.createdAt,
-                    status: record.status,
-                    hoursWorked: record.hoursWorked || 0
-                };
-            })
-            .sort((a, b) => new Date(b.date) - new Date(a.date))
-            .slice(0, 10);
+        const mapVerifiedMission = (record) => {
+            const mission = record.event || record.eventInstance;
+            return {
+                attendanceId: record._id,
+                missionType: record.eventInstance ? 'instance' : 'event',
+                missionId: mission?._id || null,
+                title: mission?.title || 'Mission',
+                ngoName: mission?.ngoName || '',
+                category: mission?.category || 'Other',
+                date: mission?.date || record.createdAt,
+                status: record.status,
+                hoursWorked: record.hoursWorked || 0
+            };
+        };
+
+        const verifiedMissions = checkedIn
+            .map(mapVerifiedMission)
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const recentHistory = verifiedMissions.slice(0, 10);
+
+        const scoreFromRegistrations = joinedCount * 100;
+        const scoreFromCheckIns = checkedInCount * 50;
+        const scoreFromHours = totalHours * 10;
 
         // Next badge hints
         const nextMilestones = [];
@@ -430,9 +437,18 @@ exports.getVolunteerStats = async (req, res) => {
                 communityScore,
                 level,
                 pointsToNextLevel,
+                scoreBreakdown: {
+                    fromRegistrations: scoreFromRegistrations,
+                    fromCheckIns: scoreFromCheckIns,
+                    fromHours: scoreFromHours,
+                    registeredMissions: joinedCount,
+                    verifiedMissions: checkedInCount,
+                    verifiedHours: totalHours
+                },
                 badges,
                 nextMilestones,
-                recentHistory
+                recentHistory,
+                verifiedMissions
             }
         });
     } catch (err) {
