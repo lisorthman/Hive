@@ -59,6 +59,12 @@ exports.joinInstance = async (req, res) => {
         if (instance.status === 'cancelled') {
             return res.status(400).json({ success: false, error: 'This date has been cancelled' });
         }
+        if (instance.status === 'completed') {
+            return res.status(400).json({
+                success: false,
+                error: 'This mission date has been completed and is no longer accepting volunteers'
+            });
+        }
 
         const result = await joinMission({
             doc: instance,

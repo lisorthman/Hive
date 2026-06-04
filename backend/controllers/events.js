@@ -17,6 +17,80 @@ const {
 const userOnList = (list, userId) =>
     list.some((id) => id.toString() === userId.toString());
 
+const isMissionLocked = (doc) =>
+    doc.status === 'completed' || doc.status === 'cancelled';
+
+// @desc    NGO dashboard summary stats
+// @route   GET /api/events/dashboard-stats
+// @access  Private (NGO/Admin)
+exports.getNGODashboardStats = async (req, res) => {
+    try {
+        const orgId = req.user.role === 'admin' && req.query.organization
+            ? req.query.organization
+            : req.user.id;
+
+        const events = await Event.find({ organization: orgId }).lean();
+        const now = new Date();
+
+        const activeEvents = events.filter(
+            (e) =>
+                !isMissionLocked(e) && new Date(e.date) >= now
+        ).length;
+
+        const completedEvents = events.filter((e) => e.status === 'completed');
+        const completedIds = completedEvents.map((e) => e._id);
+
+        const attendance = await Attendance.find({
+            event: { $in: completedIds },
+            status: 'checked-in'
+        }).lean();
+
+        const hoursByEvent = {};
+        for (const record of attendance) {
+            const key = record.event.toString();
+            if (!hoursByEvent[key]) {
+                hoursByEvent[key] = { total: 0, volunteers: 0 };
+            }
+            hoursByEvent[key].total += record.hoursWorked || 0;
+            hoursByEvent[key].volunteers += 1;
+        }
+
+        const perMissionAvgs = Object.values(hoursByEvent)
+            .filter((row) => row.volunteers > 0)
+            .map((row) => row.total / row.volunteers);
+
+        const avgHoursPerMission =
+            perMissionAvgs.length > 0
+                ? Math.round(
+                      (perMissionAvgs.reduce((sum, h) => sum + h, 0) / perMissionAvgs.length) *
+                          10
+                  ) / 10
+                : 0;
+
+        const ratedEvents = events.filter((e) => (e.reviewCount || 0) > 0);
+        const avgRating =
+            ratedEvents.length > 0
+                ? Math.round(
+                      (ratedEvents.reduce((sum, e) => sum + (e.averageRating || 0), 0) /
+                          ratedEvents.length) *
+                          10
+                  ) / 10
+                : 0;
+
+        res.status(200).json({
+            success: true,
+            data: {
+                activeEvents,
+                conductedEvents: completedEvents.length,
+                avgHoursPerMission,
+                avgRating
+            }
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
 // @desc    Get all events
 // @route   GET /api/events
 // @access  Public
@@ -244,6 +318,17 @@ exports.updateEvent = async (req, res) => {
             return res.status(401).json({ success: false, error: 'Not authorized to update this event' });
         }
 
+        if (isMissionLocked(event)) {
+            const onlyStatus =
+                Object.keys(req.body).length === 1 && req.body.status !== undefined;
+            if (!onlyStatus || req.user.role !== 'admin') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Completed or cancelled missions cannot be edited'
+                });
+            }
+        }
+
         const previousCapacity = event.capacity;
         const volunteerIds = [...event.volunteersJoined];
 
@@ -346,6 +431,13 @@ exports.joinEvent = async (req, res) => {
 
         if (event.status === 'cancelled') {
             return res.status(400).json({ success: false, error: 'This mission has been cancelled' });
+        }
+
+        if (event.status === 'completed') {
+            return res.status(400).json({
+                success: false,
+                error: 'This mission has been completed and is no longer accepting volunteers'
+            });
         }
 
         if (event.missionMode === 'emergency' && req.body.safetyAcknowledged !== true) {
@@ -510,6 +602,13 @@ exports.removeEventVolunteer = async (req, res) => {
 
         if (event.organization.toString() !== req.user.id && req.user.role !== 'admin') {
             return res.status(401).json({ success: false, error: 'Not authorized to remove volunteers from this event' });
+        }
+
+        if (isMissionLocked(event)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cannot remove volunteers from a completed or cancelled mission'
+            });
         }
 
         const inJoined = event.volunteersJoined.some((v) => v.toString() === volunteerId);

@@ -13,13 +13,15 @@ const {
     leaveEvent,
     getRecommendedEvents,
     getEventVolunteers,
-    removeEventVolunteer
+    removeEventVolunteer,
+    getNGODashboardStats
 } = require('../controllers/events');
 
 const router = express.Router();
 
 const { protect, authorize } = require('../middleware/auth');
 
+router.get('/dashboard-stats', protect, authorize('ngo', 'admin'), getNGODashboardStats);
 router.get('/my-events', protect, authorize('ngo', 'admin'), getMyEvents);
 router.get('/joined', protect, authorize('volunteer', 'admin'), getJoinedEvents);
 router.get('/waitlisted', protect, authorize('volunteer', 'admin'), getWaitlistedEvents);
