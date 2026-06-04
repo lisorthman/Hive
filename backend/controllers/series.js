@@ -1,6 +1,7 @@
 const EventSeries = require('../models/EventSeries');
 const EventInstance = require('../models/EventInstance');
 const generateSeriesInstances = require('../utils/generateSeriesInstances');
+const { validateShiftSlotsAgainstCapacity } = require('../utils/validateShiftSlots');
 
 // @desc    Create recurring series and generate instances
 // @route   POST /api/series
@@ -14,11 +15,13 @@ exports.createSeries = async (req, res) => {
         req.body.organization = req.user.id;
         req.body.ngoName = req.user.name;
 
-        if (req.body.useShiftSlots && (!req.body.shiftSlotTemplate || !req.body.shiftSlotTemplate.length)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Add at least one shift slot template when using shift slots'
-            });
+        const shiftValidationError = validateShiftSlotsAgainstCapacity({
+            capacity: req.body.defaultCapacity,
+            useShiftSlots: req.body.useShiftSlots,
+            shiftSlotTemplate: req.body.shiftSlotTemplate
+        });
+        if (shiftValidationError) {
+            return res.status(400).json({ success: false, error: shiftValidationError });
         }
 
         const series = await EventSeries.create(req.body);

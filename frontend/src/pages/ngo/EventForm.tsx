@@ -117,6 +117,16 @@ export default function EventForm() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
+    const volunteersNeededLabel =
+        missionKind === 'recurring' && !isEdit ? 'Volunteers per date' : 'Volunteers Needed';
+
+    const totalShiftCapacity = useShiftSlots
+        ? shiftSlots.reduce((sum, s) => sum + (s.capacity || 0), 0)
+        : 0;
+
+    const shiftCapacityOverLimit =
+        useShiftSlots && totalShiftCapacity > (formData.capacity || 0);
+
     const handlePublish = async () => {
         if (isLocked) {
             setError('This mission is closed and can no longer be edited.');
@@ -159,9 +169,20 @@ export default function EventForm() {
                   }))
                 : undefined;
 
-            const totalSlotCapacity = useShiftSlots
-                ? shiftSlots.reduce((sum, s) => sum + s.capacity, 0)
-                : formData.capacity;
+            if (useShiftSlots) {
+                if (!shiftSlots.length) {
+                    setError('Add at least one shift slot');
+                    setIsSubmitting(false);
+                    return;
+                }
+                if (totalShiftCapacity > formData.capacity) {
+                    setError(
+                        `Total shift capacity (${totalShiftCapacity}) cannot exceed ${volunteersNeededLabel.toLowerCase()} (${formData.capacity})`
+                    );
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
 
             if (!isEdit && missionKind === 'recurring') {
                 if (!recurrence.seriesStart || !recurrence.seriesEnd) {
@@ -178,7 +199,7 @@ export default function EventForm() {
                     recurrence: { frequency: 'weekly', dayOfWeek: recurrence.dayOfWeek },
                     seriesStart: new Date(recurrence.seriesStart),
                     seriesEnd: new Date(recurrence.seriesEnd),
-                    defaultCapacity: totalSlotCapacity,
+                    defaultCapacity: formData.capacity,
                     useShiftSlots,
                     shiftSlotTemplate: slotPayload
                 });
@@ -189,7 +210,7 @@ export default function EventForm() {
                     category: formData.category,
                     date: new Date(formData.date),
                     location: locationPayload,
-                    capacity: totalSlotCapacity,
+                    capacity: formData.capacity,
                     prepNotes: formData.prepNotes,
                     useShiftSlots,
                     shiftSlots: slotPayload
@@ -371,6 +392,7 @@ export default function EventForm() {
                             </div>
                             <Input
                                 type="number"
+                                min={1}
                                 label="Volunteers per date"
                                 value={formData.capacity}
                                 onChange={(e) =>
@@ -410,6 +432,7 @@ export default function EventForm() {
                             />
                             <Input
                                 type="number"
+                                min={1}
                                 label="Volunteers Needed"
                                 value={formData.capacity}
                                 onChange={(e) =>
@@ -434,6 +457,22 @@ export default function EventForm() {
 
                         {useShiftSlots && (
                             <div className="space-y-3">
+                                <p className="text-xs text-hive-text-secondary leading-relaxed">
+                                    Each shift has its own capacity. The total across all shifts must be
+                                    equal to or less than {volunteersNeededLabel.toLowerCase()} (
+                                    {formData.capacity}).
+                                </p>
+                                <p
+                                    className={cn(
+                                        'text-xs font-bold',
+                                        shiftCapacityOverLimit
+                                            ? 'text-red-600'
+                                            : 'text-hive-primary'
+                                    )}
+                                >
+                                    Shift total: {totalShiftCapacity} / {formData.capacity}
+                                    {shiftCapacityOverLimit && ' — reduce slot capacities to continue'}
+                                </p>
                                 {shiftSlots.map((slot, idx) => (
                                     <div
                                         key={idx}
@@ -470,13 +509,17 @@ export default function EventForm() {
                                         />
                                         <Input
                                             type="number"
+                                            min={1}
                                             label="Capacity"
                                             value={slot.capacity}
                                             onChange={(e) => {
                                                 const next = [...shiftSlots];
                                                 next[idx] = {
                                                     ...next[idx],
-                                                    capacity: parseInt(e.target.value, 10) || 1
+                                                    capacity: Math.max(
+                                                        1,
+                                                        parseInt(e.target.value, 10) || 1
+                                                    )
                                                 };
                                                 setShiftSlots(next);
                                             }}
@@ -487,17 +530,22 @@ export default function EventForm() {
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() =>
+                                    onClick={() => {
+                                        const remaining = Math.max(
+                                            1,
+                                            formData.capacity - totalShiftCapacity
+                                        );
                                         setShiftSlots((s) => [
                                             ...s,
                                             {
                                                 label: `Shift ${s.length + 1}`,
                                                 startTime: '09:00',
                                                 endTime: '12:00',
-                                                capacity: 10
+                                                capacity: remaining
                                             }
-                                        ])
-                                    }
+                                        ]);
+                                    }}
+                                    disabled={totalShiftCapacity >= formData.capacity}
                                 >
                                     Add shift slot
                                 </Button>

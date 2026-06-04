@@ -8,6 +8,7 @@ const { promoteFromWaitlist } = require('../utils/waitlist');
 const notifyEventVolunteers = require('../utils/notifyEventVolunteers');
 const { joinMission, leaveMission, getParticipation } = require('../utils/shiftSlots');
 const { sendCrisisAlerts } = require('../utils/crisisAlerts');
+const { validateShiftSlotsAgainstCapacity } = require('../utils/validateShiftSlots');
 const {
     fetchDiscoveryFeed,
     fetchJoinedMissions,
@@ -242,13 +243,16 @@ exports.createEvent = async (req, res) => {
             return res.status(403).json({ success: false, error: 'Only NGOs can create events' });
         }
 
+        const shiftValidationError = validateShiftSlotsAgainstCapacity({
+            capacity: req.body.capacity,
+            useShiftSlots: req.body.useShiftSlots,
+            shiftSlots: req.body.shiftSlots
+        });
+        if (shiftValidationError) {
+            return res.status(400).json({ success: false, error: shiftValidationError });
+        }
+
         if (req.body.useShiftSlots) {
-            if (!req.body.shiftSlots?.length) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Add at least one shift slot when using shift slots'
-                });
-            }
             req.body.shiftSlots = req.body.shiftSlots.map((s) => ({
                 label: s.label,
                 startTime: s.startTime,
@@ -327,6 +331,33 @@ exports.updateEvent = async (req, res) => {
                     error: 'Completed or cancelled missions cannot be edited'
                 });
             }
+        }
+
+        const mergedUseShiftSlots =
+            req.body.useShiftSlots !== undefined ? req.body.useShiftSlots : event.useShiftSlots;
+        const mergedShiftSlots =
+            req.body.shiftSlots !== undefined ? req.body.shiftSlots : event.shiftSlots;
+        const mergedCapacity =
+            req.body.capacity !== undefined ? req.body.capacity : event.capacity;
+
+        const shiftValidationError = validateShiftSlotsAgainstCapacity({
+            capacity: mergedCapacity,
+            useShiftSlots: mergedUseShiftSlots,
+            shiftSlots: mergedShiftSlots
+        });
+        if (shiftValidationError) {
+            return res.status(400).json({ success: false, error: shiftValidationError });
+        }
+
+        if (mergedUseShiftSlots && req.body.shiftSlots?.length) {
+            req.body.shiftSlots = req.body.shiftSlots.map((s) => ({
+                label: s.label,
+                startTime: s.startTime,
+                endTime: s.endTime,
+                capacity: s.capacity,
+                volunteersJoined: s.volunteersJoined || [],
+                waitlist: s.waitlist || []
+            }));
         }
 
         const previousCapacity = event.capacity;
