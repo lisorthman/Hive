@@ -48,6 +48,7 @@ export default function NGODashboard() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [reviewSummary, setReviewSummary] = useState<any>(null);
     const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+    const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
     const [isVolunteersModalOpen, setIsVolunteersModalOpen] = useState(false);
     const [volunteerEvent, setVolunteerEvent] = useState<any>(null);
     const [joinedVolunteers, setJoinedVolunteers] = useState<any[]>([]);
@@ -58,13 +59,34 @@ export default function NGODashboard() {
     const [myImpactPosts, setMyImpactPosts] = useState<any[]>([]);
     const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
     const [partnerInviteBusy, setPartnerInviteBusy] = useState<string | null>(null);
+    const [dashboardStats, setDashboardStats] = useState<{
+        activeEvents: number;
+        conductedEvents: number;
+        avgHoursPerMission: number;
+        avgRating: number;
+    } | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const now = new Date();
+    const activeHostedEvents = events.filter(
+        (e) =>
+            e.status !== 'completed' &&
+            e.status !== 'cancelled' &&
+            new Date(e.date) >= now
+    );
+    const completedHostedEvents = events.filter((e) => e.status === 'completed');
+    const isEventLocked = (event: any) =>
+        event.status === 'completed' || event.status === 'cancelled';
 
     const fetchEvents = async () => {
         try {
             setIsLoading(true);
-            const data = await eventService.getMyEvents();
+            const [data, stats] = await Promise.all([
+                eventService.getMyEvents(),
+                eventService.getNGODashboardStats().catch(() => null)
+            ]);
             setEvents(data);
+            setDashboardStats(stats);
         } catch (error) {
             console.error('Failed to fetch events:', error);
         } finally {
@@ -174,6 +196,7 @@ export default function NGODashboard() {
         setIsDownloadingReport(true);
         try {
             await reportService.downloadImpactReport(format);
+            setIsDownloadModalOpen(false);
         } catch (error) {
             console.error('Failed to download impact report:', error);
         } finally {
@@ -216,6 +239,10 @@ export default function NGODashboard() {
 
     const handleRemoveVolunteer = async (volunteerId: string) => {
         if (!volunteerEvent) return;
+        if (isEventLocked(volunteerEvent)) {
+            alert('Cannot remove volunteers from a completed or cancelled mission.');
+            return;
+        }
         if (!window.confirm('Remove this volunteer from the mission?')) return;
 
         setIsRemovingVolunteerId(volunteerId);
@@ -424,102 +451,123 @@ export default function NGODashboard() {
                     </Card>
                 )}
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <header className="mb-10 pb-8 border-b border-slate-100 space-y-5">
                     <div>
-                        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Organization Dashboard</h1>
-                        <p className="text-slate-500 mt-1">Manage your events and track impact.</p>
+                        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+                            Organization Dashboard
+                        </h1>
+                        <p className="text-slate-500 mt-1 text-sm sm:text-base">
+                            Manage your events and track impact.
+                        </p>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 h-9"
-                            disabled={isDownloadingReport}
-                            onClick={() => handleDownloadReport('csv')}
-                        >
-                            {isDownloadingReport ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                                <Download className="h-5 w-5" />
-                            )}
-                            Download report (CSV)
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 h-9"
-                            disabled={isDownloadingReport}
-                            onClick={() => handleDownloadReport('pdf')}
-                        >
-                            {isDownloadingReport ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                                <Download className="h-5 w-5" />
-                            )}
-                            Download report (PDF)
-                        </Button>
-                        <Button
-                            size="lg"
-                            className="gap-2 shadow-lg shadow-hive-primary/20"
-                            onClick={() => navigate('/ngo-create')}
-                        >
-                            <Plus className="h-5 w-5" />
-                            Create New Event
-                        </Button>
-                        <Button
-                            size="lg"
-                            variant="outline"
-                            className="gap-2 border-rose-300 text-rose-700 hover:bg-rose-50"
-                            onClick={() => navigate('/ngo-crisis/create')}
-                        >
-                            <AlertTriangle className="h-5 w-5" />
-                            Launch Crisis Mission
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 h-9"
-                            onClick={() => setIsPublishModalOpen(true)}
-                        >
-                            <Sparkles className="h-4 w-4" />
-                            Publish Impact Story
-                        </Button>
-                    </div>
-                </div>
 
-                <Card className="border-slate-200 mb-8">
-                    <CardContent className="p-5 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-slate-900">
-                                Impact Story Management
-                            </h2>
-                            <Button size="sm" variant="outline" onClick={() => setIsPublishModalOpen(true)}>
-                                Publish to a mission
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                            <Button
+                                className="h-10 gap-2 shadow-lg shadow-hive-primary/20 w-full sm:w-auto justify-center"
+                                onClick={() => navigate('/ngo-create')}
+                            >
+                                <Plus className="h-4 w-4 shrink-0" />
+                                Create New Event
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => navigate('/impact-feed')}>
-                                Open Feed
+                            <Button
+                                variant="outline"
+                                className="h-10 gap-2 border-rose-300 text-rose-700 hover:bg-rose-50 w-full sm:w-auto justify-center"
+                                onClick={() => navigate('/ngo-crisis/create')}
+                            >
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                Launch Crisis Mission
                             </Button>
                         </div>
+
+                        <div
+                            className="hidden sm:block w-px h-8 bg-slate-200 shrink-0"
+                            aria-hidden
+                        />
+
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto lg:ml-auto">
+                            <Button
+                                variant="outline"
+                                className="h-10 gap-2 w-full sm:w-auto justify-center"
+                                disabled={isDownloadingReport}
+                                onClick={() => setIsDownloadModalOpen(true)}
+                            >
+                                {isDownloadingReport ? (
+                                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                                ) : (
+                                    <Download className="h-4 w-4 shrink-0" />
+                                )}
+                                Download report
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-10 gap-2 w-full sm:w-auto justify-center"
+                                onClick={() => setIsPublishModalOpen(true)}
+                            >
+                                <Sparkles className="h-4 w-4 shrink-0" />
+                                Publish Impact Story
+                            </Button>
+                        </div>
+                    </div>
+                </header>
+
+                <Card className="border-slate-200 mb-8">
+                    <CardContent className="p-6 space-y-5">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="space-y-1 min-w-0">
+                                <h2 className="text-lg font-bold text-slate-900">
+                                    Impact Story Management
+                                </h2>
+                                <p className="text-sm text-slate-500">
+                                    Stories published by your organization
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2 sm:shrink-0">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-9 gap-2 justify-center"
+                                    onClick={() => setIsPublishModalOpen(true)}
+                                >
+                                    <Sparkles className="h-4 w-4 shrink-0" />
+                                    Publish to a mission
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-9 justify-center"
+                                    onClick={() => navigate('/impact-feed')}
+                                >
+                                    Open Feed
+                                </Button>
+                            </div>
+                        </div>
+
                         {myImpactPosts.length === 0 ? (
-                            <p className="text-sm text-slate-500">
-                                No impact stories published yet. Share your mission outcomes to recognize volunteers and build trust.
+                            <p className="text-sm text-slate-500 py-4 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                No impact stories published yet. Share your mission outcomes to recognize
+                                volunteers and build trust.
                             </p>
                         ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {myImpactPosts.map((post) => (
                                     <div
                                         key={post._id}
-                                        className="border border-slate-100 rounded-xl p-3 flex items-center justify-between"
+                                        className="flex items-center gap-4 border border-slate-100 rounded-xl p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
                                     >
-                                        <div>
-                                            <p className="text-sm font-bold text-slate-900 line-clamp-1">{post.title}</p>
-                                            <p className="text-xs text-slate-500">
-                                                {post.likesCount || 0} likes · {post.commentsCount || 0} comments
+                                        <div className="flex-1 min-w-0 space-y-1">
+                                            <p className="text-sm font-bold text-slate-900 truncate">
+                                                {post.title}
+                                            </p>
+                                            <p className="text-xs text-slate-500 tabular-nums">
+                                                {post.likesCount || 0} likes · {post.commentsCount || 0}{' '}
+                                                comments
                                             </p>
                                         </div>
                                         <Button
                                             size="sm"
                                             variant="outline"
+                                            className="h-9 shrink-0 px-4"
                                             onClick={() => navigate(`/impact-feed?focus=${post._id}`)}
                                         >
                                             View
@@ -559,150 +607,108 @@ export default function NGODashboard() {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                     <DashboardStat
                         icon={<Calendar className="h-6 w-6" />}
                         label="Active Events"
-                        value={events.length.toString()}
+                        value={String(dashboardStats?.activeEvents ?? activeHostedEvents.length)}
                         color="blue"
                     />
                     <DashboardStat
-                        icon={<Users className="h-6 w-6" />}
-                        label="Total Volunteers"
-                        value={events.reduce((acc, curr) => acc + (curr.volunteersJoined?.length || 0), 0).toString()}
+                        icon={<CheckCircle2 className="h-6 w-6" />}
+                        label="Conducted Events"
+                        value={String(dashboardStats?.conductedEvents ?? completedHostedEvents.length)}
                         color="green"
                     />
                     <DashboardStat
-                        icon={<TrendingUp className="h-6 w-6" />}
-                        label="Total Slots"
-                        value={events.reduce((acc, curr) => acc + (curr.capacity || 0), 0).toString()}
+                        icon={<Clock className="h-6 w-6" />}
+                        label="Avg Hours / Mission"
+                        value={
+                            dashboardStats && dashboardStats.avgHoursPerMission > 0
+                                ? `${dashboardStats.avgHoursPerMission}h`
+                                : '—'
+                        }
                         color="purple"
+                    />
+                    <DashboardStat
+                        icon={<Star className="h-6 w-6" />}
+                        label="Avg Rating"
+                        value={
+                            dashboardStats && dashboardStats.avgRating > 0
+                                ? `${dashboardStats.avgRating.toFixed(1)} ★`
+                                : '—'
+                        }
+                        color="blue"
                     />
                 </div>
 
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-slate-900">Your Hosted Events</h2>
-                    </div>
+                <div className="space-y-10">
+                    <HostedEventsSection
+                        title="Your Hosted Events"
+                        subtitle="Upcoming and in-progress missions you can still manage."
+                        events={activeHostedEvents}
+                        isLoading={isLoading}
+                        emptyTitle="No active events"
+                        emptyMessage="Create a new mission or check completed events below."
+                        navigate={navigate}
+                        onDeleteClick={handleDeleteClick}
+                        onOpenVolunteers={openVolunteersModal}
+                        isEventLocked={isEventLocked}
+                        showManageActions
+                    />
 
-                    {isLoading ? (
-                        <div className="bg-white rounded-xl border border-slate-200 p-12 flex flex-col items-center justify-center">
-                            <Loader2 className="h-8 w-8 text-hive-primary animate-spin mb-4" />
-                            <p className="text-slate-500">Loading your events...</p>
-                        </div>
-                    ) : events.length === 0 ? (
-                        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-                            <div className="inline-flex w-16 h-16 bg-slate-50 rounded-full items-center justify-center mb-4">
-                                <Calendar className="h-8 w-8 text-slate-400" />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-900 mb-2">No events created yet</h3>
-                            <p className="text-slate-500 max-w-md mx-auto mb-6">
-                                You haven't hosted any volunteering opportunities yet. Create your first mission to start making an impact.
-                            </p>
-                            <Button variant="outline" onClick={() => navigate('/ngo-create')}>
-                                Get Started
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                            <table className="w-full text-left">
-                                <thead className="bg-slate-50 border-b border-slate-100">
-                                    <tr>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Mission Name</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Date</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Volunteers</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Category</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Rating</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {events.map((event) => (
-                                        <tr key={event._id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => navigate(`/ngo-mission/${event._id}`)}
-                                                    className="font-bold text-slate-900 text-left hover:text-hive-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-hive-primary rounded"
-                                                >
-                                                    {event.title}
-                                                </button>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-sm text-slate-600">
-                                                    {new Date(event.date).toLocaleDateString()}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-bold text-slate-900">
-                                                        {event.volunteersJoined?.length || 0}
-                                                    </span>
-                                                    <span className="text-xs text-slate-400">/ {event.capacity}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="inline-flex px-2 py-1 rounded bg-hive-primary/10 text-hive-primary text-[10px] font-bold uppercase tracking-wider">
-                                                    {event.category}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {event.reviewCount > 0 ? (
-                                                    <span className="flex items-center gap-1 text-sm font-bold text-amber-600">
-                                                        <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                                                        {event.averageRating?.toFixed(1)} ({event.reviewCount})
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs text-slate-400">No reviews</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        onClick={() => navigate(`/ngo-attendance/${event._id}`)}
-                                                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                                                        title="Manage Attendance"
-                                                    >
-                                                        <UserCheck className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openVolunteersModal(event)}
-                                                        className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all"
-                                                        title="Manage Volunteers"
-                                                    >
-                                                        <Users className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => navigate(`/event/${event._id}`)}
-                                                        className="p-2 text-slate-400 hover:text-hive-primary hover:bg-hive-primary/5 rounded-lg transition-all"
-                                                        title="View Details"
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => navigate(`/ngo-edit/${event._id}`)}
-                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                        title="Edit Event"
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteClick(event._id)}
-                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                                        title="Delete Event"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                    <HostedEventsSection
+                        title="Completed Events"
+                        subtitle="Finished missions — roster is locked; view attendance and impact from the mission hub."
+                        events={completedHostedEvents}
+                        isLoading={isLoading}
+                        emptyTitle="No completed events yet"
+                        emptyMessage="Mark a mission as completed from its mission hub when volunteers have checked in."
+                        navigate={navigate}
+                        onDeleteClick={handleDeleteClick}
+                        onOpenVolunteers={openVolunteersModal}
+                        isEventLocked={isEventLocked}
+                        showManageActions={false}
+                    />
                 </div>
             </main>
+
+            <Modal
+                isOpen={isDownloadModalOpen}
+                onClose={() => !isDownloadingReport && setIsDownloadModalOpen(false)}
+                title="Download impact report"
+            >
+                <p className="text-sm text-slate-600 mb-6">
+                    Choose a format for your organization&apos;s impact report.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                        variant="outline"
+                        className="flex-1 gap-2"
+                        disabled={isDownloadingReport}
+                        onClick={() => handleDownloadReport('csv')}
+                    >
+                        {isDownloadingReport ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Download className="h-4 w-4" />
+                        )}
+                        CSV spreadsheet
+                    </Button>
+                    <Button
+                        className="flex-1 gap-2"
+                        disabled={isDownloadingReport}
+                        onClick={() => handleDownloadReport('pdf')}
+                    >
+                        {isDownloadingReport ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Download className="h-4 w-4" />
+                        )}
+                        PDF document
+                    </Button>
+                </div>
+            </Modal>
 
             {/* Delete Confirmation Modal */}
             <Modal
@@ -792,18 +798,25 @@ export default function NGODashboard() {
                 title={volunteerEvent ? `Volunteers · ${volunteerEvent.title}` : 'Volunteers'}
             >
                 <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            Message shown when removing volunteer
-                        </label>
-                        <textarea
-                            className="w-full mt-1 p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-hive-primary/20 outline-none resize-none"
-                            rows={2}
-                            value={removeMessage}
-                            onChange={(e) => setRemoveMessage(e.target.value)}
-                            placeholder="You were removed because..."
-                        />
-                    </div>
+                    {volunteerEvent && isEventLocked(volunteerEvent) && (
+                        <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                            This mission is completed. The volunteer roster is locked and cannot be changed.
+                        </p>
+                    )}
+                    {volunteerEvent && !isEventLocked(volunteerEvent) && (
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                Message shown when removing volunteer
+                            </label>
+                            <textarea
+                                className="w-full mt-1 p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-hive-primary/20 outline-none resize-none"
+                                rows={2}
+                                value={removeMessage}
+                                onChange={(e) => setRemoveMessage(e.target.value)}
+                                placeholder="You were removed because..."
+                            />
+                        </div>
+                    )}
 
                     {isLoadingVolunteers ? (
                         <div className="py-10 flex items-center justify-center">
@@ -836,16 +849,18 @@ export default function NGODashboard() {
                                                 >
                                                     View dashboard
                                                 </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-rose-600 border-rose-200 hover:bg-rose-50"
-                                                    onClick={() => handleRemoveVolunteer(v._id)}
-                                                    isLoading={isRemovingVolunteerId === v._id}
-                                                >
-                                                    <UserX className="h-4 w-4 mr-1" />
-                                                    Remove
-                                                </Button>
+                                                {!isEventLocked(volunteerEvent) && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                                                        onClick={() => handleRemoveVolunteer(v._id)}
+                                                        isLoading={isRemovingVolunteerId === v._id}
+                                                    >
+                                                        <UserX className="h-4 w-4 mr-1" />
+                                                        Remove
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -877,16 +892,18 @@ export default function NGODashboard() {
                                                 >
                                                     View dashboard
                                                 </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-rose-600 border-rose-200 hover:bg-rose-50"
-                                                    onClick={() => handleRemoveVolunteer(v._id)}
-                                                    isLoading={isRemovingVolunteerId === v._id}
-                                                >
-                                                    <UserX className="h-4 w-4 mr-1" />
-                                                    Remove
-                                                </Button>
+                                                {!isEventLocked(volunteerEvent) && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                                                        onClick={() => handleRemoveVolunteer(v._id)}
+                                                        isLoading={isRemovingVolunteerId === v._id}
+                                                    >
+                                                        <UserX className="h-4 w-4 mr-1" />
+                                                        Remove
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -896,6 +913,148 @@ export default function NGODashboard() {
                     )}
                 </div>
             </Modal>
+        </div>
+    );
+}
+
+function HostedEventsSection({
+    title,
+    subtitle,
+    events,
+    isLoading,
+    emptyTitle,
+    emptyMessage,
+    navigate,
+    onDeleteClick,
+    onOpenVolunteers,
+    isEventLocked,
+    showManageActions
+}: {
+    title: string;
+    subtitle: string;
+    events: any[];
+    isLoading: boolean;
+    emptyTitle: string;
+    emptyMessage: string;
+    navigate: (path: string) => void;
+    onDeleteClick: (id: string) => void;
+    onOpenVolunteers: (event: any) => void;
+    isEventLocked: (event: any) => boolean;
+    showManageActions: boolean;
+}) {
+    return (
+        <div className="space-y-4">
+            <div>
+                <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+                <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+            </div>
+
+            {isLoading ? (
+                <div className="bg-white rounded-xl border border-slate-200 p-12 flex flex-col items-center justify-center">
+                    <Loader2 className="h-8 w-8 text-hive-primary animate-spin mb-4" />
+                    <p className="text-slate-500">Loading...</p>
+                </div>
+            ) : events.length === 0 ? (
+                <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+                    <h3 className="text-lg font-bold text-slate-900 mb-2">{emptyTitle}</h3>
+                    <p className="text-slate-500 text-sm max-w-md mx-auto">{emptyMessage}</p>
+                </div>
+            ) : (
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden overflow-x-auto">
+                    <table className="w-full text-left min-w-[720px]">
+                        <thead className="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Mission</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Date</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Status</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Volunteers</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Rating</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {events.map((event) => (
+                                <tr key={event._id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate(`/ngo-mission/${event._id}`)}
+                                            className="font-bold text-slate-900 text-left hover:text-hive-primary hover:underline"
+                                        >
+                                            {event.title}
+                                        </button>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                        {new Date(event.date).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className="inline-flex px-2 py-1 rounded bg-slate-100 text-slate-700 text-[10px] font-bold uppercase capitalize">
+                                            {event.status || 'upcoming'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm">
+                                        <span className="font-bold">{event.volunteersJoined?.length || 0}</span>
+                                        <span className="text-slate-400"> / {event.capacity}</span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {event.reviewCount > 0 ? (
+                                            <span className="flex items-center gap-1 text-sm font-bold text-amber-600">
+                                                <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                                                {event.averageRating?.toFixed(1)} ({event.reviewCount})
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-slate-400">—</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => navigate(`/ngo-attendance/${event._id}`)}
+                                                className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                                                title="Attendance"
+                                            >
+                                                <UserCheck className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => onOpenVolunteers(event)}
+                                                className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg"
+                                                title={showManageActions ? 'Manage volunteers' : 'View roster'}
+                                            >
+                                                <Users className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => navigate(`/event/${event._id}`)}
+                                                className="p-2 text-slate-400 hover:text-hive-primary hover:bg-hive-primary/5 rounded-lg"
+                                                title="Public page"
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </button>
+                                            {showManageActions && !isEventLocked(event) && (
+                                                <>
+                                                    <button
+                                                        onClick={() => navigate(`/ngo-edit/${event._id}`)}
+                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                                                        title="Edit"
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => onDeleteClick(event._id)}
+                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 }
