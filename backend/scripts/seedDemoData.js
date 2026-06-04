@@ -23,7 +23,7 @@ const generateSeriesInstances = require('../utils/generateSeriesInstances');
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const DEMO_PASSWORD = '123456';
+const DEMO_PASSWORD = 'demo12345';
 
 const upsertUser = async ({ email, name, password, role, fields = {} }) => {
     const normalized = email.trim().toLowerCase();
@@ -31,7 +31,6 @@ const upsertUser = async ({ email, name, password, role, fields = {} }) => {
 
     if (user) {
         user.name = name;
-        user.password = password;
         Object.assign(user, fields);
         await user.save();
         console.log(`  Updated user: ${normalized} (${role})`);
@@ -259,14 +258,14 @@ const main = async () => {
         const floodRelief = await upsertEvent(ngo, {
             title: 'Flood Relief — Colombo',
             description:
-                'Urgent sandbagging and evacuation support after heavy rains. Volunteers with first aid or logistics experience especially needed.',
-            date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+                'Urgent sandbagging and evacuation support after heavy rains. Volunteers with first aid or logistics experience especially needed. Use this mission to demo Crisis Hub, broadcast alerts, and live updates.',
+            date: new Date(),
             location: { name: 'Kolonnawa, Colombo', coordinates: [79.895, 6.915] },
             category: 'Disaster Relief',
             capacity: 100,
-            volunteersJoined: [alex._id],
+            volunteersJoined: [],
             waitlist: [],
-            status: 'upcoming',
+            status: 'ongoing',
             missionMode: 'emergency',
             crisis: {
                 urgencyLevel: 'critical',
@@ -277,63 +276,14 @@ const main = async () => {
                 immediateNeeds: ['Sandbagging', 'Evacuation support', 'Food distribution'],
                 requiredSkills: ['First aid', 'Team leadership'],
                 deploymentMode: 'rapid',
-                crisisStatus: 'active'
+                crisisStatus: 'active',
+                partnerNgos: []
             }
         });
 
-        floodRelief.crisis.partnerNgos = [{ ngo: redCross._id, status: 'accepted' }];
-        await floodRelief.save();
-
         await CrisisResourceRequest.deleteMany({ event: floodRelief._id });
-        await CrisisResourceRequest.create([
-            {
-                event: floodRelief._id,
-                ngo: ngo._id,
-                item: 'Food packs',
-                quantityNeeded: 500,
-                unit: 'packs',
-                priority: 'critical',
-                pledges: [{ user: sam._id, quantity: 50, note: 'Local bakery donation' }]
-            },
-            {
-                event: floodRelief._id,
-                ngo: ngo._id,
-                item: 'Blankets',
-                quantityNeeded: 200,
-                unit: 'units',
-                priority: 'high'
-            },
-            {
-                event: floodRelief._id,
-                ngo: ngo._id,
-                item: 'Water bottles',
-                quantityNeeded: 1000,
-                unit: 'bottles',
-                priority: 'high'
-            }
-        ]);
-        console.log('  Crisis resources + Red Cross partner on flood mission');
-
         await CrisisUpdate.deleteMany({ event: floodRelief._id });
-        await CrisisUpdate.create([
-            {
-                event: floodRelief._id,
-                author: ngo._id,
-                message: 'Shelter at Kolonnawa school reached 80% capacity. More blankets urgently needed.',
-                isPinned: true
-            },
-            {
-                event: floodRelief._id,
-                author: ngo._id,
-                message: 'First sandbagging team deployed. Water levels stabilizing in Ward 3.'
-            },
-            {
-                event: floodRelief._id,
-                author: ngo._id,
-                message: 'Food distribution started — 200 packs handed out in the last hour.'
-            }
-        ]);
-        console.log('  3 live situation updates on flood mission');
+        console.log('  Emergency mission (no seeded updates, resources, or partners)');
 
         // ── 3) Recurring series ─────────────────────────────────────────────
         console.log('\n3) Recurring series (Food Bank Fridays)');
@@ -497,7 +447,7 @@ const main = async () => {
 
         // ── Summary ─────────────────────────────────────────────────────────
         console.log('\n=== SEED COMPLETE ===\n');
-        console.log('All passwords: 123456\n');
+        console.log('New accounts password: demo12345 (existing accounts keep their current password)\n');
         console.log('ACCOUNTS');
         console.log('  Admin (verify NGOs, audit, moderation):  admin@gmail.com');
         console.log('  NGO verified (missions, attendance, stories): save@earth.org');
