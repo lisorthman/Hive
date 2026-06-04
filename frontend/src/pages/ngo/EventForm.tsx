@@ -79,12 +79,20 @@ export default function EventForm() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [eventStatus, setEventStatus] = useState<string | null>(null);
+
+    const isLocked = eventStatus === 'completed' || eventStatus === 'cancelled';
 
     useEffect(() => {
         if (isEdit) {
             const fetchEvent = async () => {
                 try {
                     const data = await eventService.getEvent(id!);
+                    setEventStatus(data.status || 'upcoming');
+                    if (data.status === 'completed' || data.status === 'cancelled') {
+                        setError('This mission is closed and can no longer be edited.');
+                        return;
+                    }
                     setFormData({
                         name: data.title,
                         description: data.description,
@@ -110,6 +118,10 @@ export default function EventForm() {
     };
 
     const handlePublish = async () => {
+        if (isLocked) {
+            setError('This mission is closed and can no longer be edited.');
+            return;
+        }
         setIsSubmitting(true);
         setError(null);
 

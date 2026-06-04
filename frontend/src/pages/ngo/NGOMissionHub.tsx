@@ -107,10 +107,14 @@ export default function NGOMissionHub() {
         () => attendance.filter((a) => a.status === 'checked-in').length,
         [attendance]
     );
-    const totalHours = useMemo(
-        () => attendance.reduce((s, a) => s + (a.hoursWorked || 0), 0),
-        [attendance]
-    );
+    const avgHoursLogged = useMemo(() => {
+        const withHours = attendance.filter(
+            (a) => a.status === 'checked-in' && (a.hoursWorked || 0) > 0
+        );
+        if (withHours.length === 0) return 0;
+        const total = withHours.reduce((s, a) => s + (a.hoursWorked || 0), 0);
+        return Math.round((total / withHours.length) * 10) / 10;
+    }, [attendance]);
     const commentCount = useMemo(() => countThreadedComments(commentThreads), [commentThreads]);
 
     const markMissionCompleted = async () => {
@@ -287,8 +291,8 @@ export default function NGOMissionHub() {
                     />
                     <StatCard
                         icon={<ClipboardList className="h-5 w-5" />}
-                        label="Hours logged"
-                        value={String(totalHours)}
+                        label="Avg hours / volunteer"
+                        value={avgHoursLogged > 0 ? `${avgHoursLogged}h` : '—'}
                     />
                     <StatCard
                         icon={<Star className="h-5 w-5 text-amber-500 fill-amber-500" />}
@@ -430,12 +434,14 @@ export default function NGOMissionHub() {
                             icon={<QrCode className="h-5 w-5" />}
                             onClick={() => navigate(`/ngo-attendance/${eventId}`)}
                         />
-                        <ActionCard
-                            title="Edit mission"
-                            description="Update description, date, capacity, and preparation notes."
-                            icon={<Pencil className="h-5 w-5" />}
-                            onClick={() => navigate(`/ngo-edit/${eventId}`)}
-                        />
+                        {event.status !== 'completed' && event.status !== 'cancelled' && (
+                            <ActionCard
+                                title="Edit mission"
+                                description="Update description, date, capacity, and preparation notes."
+                                icon={<Pencil className="h-5 w-5" />}
+                                onClick={() => navigate(`/ngo-edit/${eventId}`)}
+                            />
+                        )}
                         <ActionCard
                             title="View public mission page"
                             description="See what volunteers see — map, discussion, and reviews."
