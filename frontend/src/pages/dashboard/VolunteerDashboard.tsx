@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
     Calendar,
@@ -13,7 +14,8 @@ import {
     LogOut,
     Loader2,
     Sparkles,
-    AlertTriangle
+    AlertTriangle,
+    Info
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -151,49 +153,87 @@ export default function VolunteerDashboard() {
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-                {/* Welcome Block */}
-                <section className="mb-10">
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex flex-col md:flex-row md:items-center justify-between gap-6"
-                    >
-                        <div>
-                            <h2 className="text-3xl font-extrabold tracking-tight">Welcome back, {user?.name.split(' ')[0] || 'Volunteer'}!</h2>
-                            <p className="text-hive-text-secondary mt-1">You've joined <span className="text-hive-primary font-bold">{joinedEvents.length}</span> missions so far. Great job!</p>
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                            <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/profile')}>
-                                <Settings className="h-4 w-4" /> Edit Profile
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open('/resume', '_blank')}>
-                                <Download className="h-4 w-4" /> Impact Resume
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-2 text-hive-primary border-hive-primary/20 hover:bg-hive-primary/5 font-bold" onClick={() => navigate('/leaderboard')}>
-                                <Award className="h-4 w-4" /> Leaderboard
-                            </Button>
-                            <Button size="sm" className="gap-2 font-bold" onClick={() => navigate('/discovery')}>
-                                <Search className="h-4 w-4" /> Find Events
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/impact-feed')}>
-                                <Sparkles className="h-4 w-4" /> Impact Feed
+                <motion.header
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-10 pb-8 border-b border-slate-100 space-y-5"
+                >
+                    <div>
+                        <h2 className="text-3xl font-extrabold tracking-tight text-hive-text-primary">
+                            Welcome back, {user?.name?.split(' ')[0] || 'Volunteer'}!
+                        </h2>
+                        <p className="text-hive-text-secondary mt-1 text-sm sm:text-base">
+                            You&apos;ve joined{' '}
+                            <span className="text-hive-primary font-bold">{joinedEvents.length}</span>{' '}
+                            missions so far. Great job!
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                            <Button
+                                className="h-10 gap-2 font-bold shadow-lg shadow-hive-primary/20 w-full sm:w-auto justify-center"
+                                onClick={() => navigate('/discovery')}
+                            >
+                                <Search className="h-4 w-4 shrink-0" />
+                                Find Events
                             </Button>
                             <Button
                                 variant="outline"
-                                size="sm"
-                                className="gap-2 text-rose-600 border-rose-200 hover:bg-rose-50 font-bold"
+                                className="h-10 gap-2 text-rose-600 border-rose-200 hover:bg-rose-50 font-bold w-full sm:w-auto justify-center"
                                 onClick={() => navigate('/crisis')}
                             >
-                                <AlertTriangle className="h-4 w-4" /> Crisis Hub
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                <span>Crisis Hub</span>
                                 {activeCrisisCount > 0 && (
-                                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px]">
+                                    <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-bold leading-none">
                                         {activeCrisisCount}
                                     </span>
                                 )}
                             </Button>
                         </div>
-                    </motion.div>
-                </section>
+
+                        <div
+                            className="hidden sm:block w-px h-8 bg-slate-200 shrink-0"
+                            aria-hidden
+                        />
+
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 w-full sm:w-auto lg:ml-auto">
+                            <Button
+                                variant="outline"
+                                className="h-10 gap-2 w-full sm:w-auto justify-center"
+                                onClick={() => navigate('/profile')}
+                            >
+                                <Settings className="h-4 w-4 shrink-0" />
+                                Edit Profile
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-10 gap-2 w-full sm:w-auto justify-center"
+                                onClick={() => navigate('/resume')}
+                            >
+                                <Download className="h-4 w-4 shrink-0" />
+                                Impact Resume
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-10 gap-2 text-hive-primary border-hive-primary/20 hover:bg-hive-primary/5 font-bold w-full sm:w-auto justify-center"
+                                onClick={() => navigate('/leaderboard')}
+                            >
+                                <Award className="h-4 w-4 shrink-0" />
+                                Leaderboard
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-10 gap-2 w-full sm:w-auto justify-center"
+                                onClick={() => navigate('/impact-feed')}
+                            >
+                                <Sparkles className="h-4 w-4 shrink-0" />
+                                Impact Feed
+                            </Button>
+                        </div>
+                    </div>
+                </motion.header>
 
                 {activeCrisisCount > 0 && (
                     <section className="mb-8">
@@ -225,7 +265,7 @@ export default function VolunteerDashboard() {
                 )}
 
                 {/* Stats Grid */}
-                <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+                <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12 overflow-visible">
                     <StatCard
                         icon={<Clock className="h-5 w-5" />}
                         label="Total Hours"
@@ -235,9 +275,9 @@ export default function VolunteerDashboard() {
                     />
                     <StatCard
                         icon={<Calendar className="h-5 w-5" />}
-                        label="Events Joined"
+                        label="Missions Registered"
                         value={stats.joinedCount.toString()}
-                        trend="Active status"
+                        trend={`${stats.checkedInCount || 0} with verified check-in`}
                         color="secondary"
                     />
                     <StatCard
@@ -247,13 +287,7 @@ export default function VolunteerDashboard() {
                         trend={`${stats.badges?.length || 0} unlocked`}
                         color="primary"
                     />
-                    <StatCard
-                        icon={<TrendingUp className="h-5 w-5" />}
-                        label="Community Score"
-                        value={(stats.communityScore || 0).toString()}
-                        trend={`Level ${stats.level || 1}`}
-                        color="secondary"
-                    />
+                    <CommunityScoreStatCard stats={stats} />
                 </section>
 
                 <section className="mb-10">
@@ -331,7 +365,10 @@ export default function VolunteerDashboard() {
                         </section>
 
                         <section className="space-y-6">
-                            <h3 className="text-xl font-bold">Your Previous Volunteering</h3>
+                            <h3 className="text-xl font-bold">Verified volunteering history</h3>
+                            <p className="text-sm text-hive-text-secondary -mt-4">
+                                Missions where an organizer checked you in and logged hours.
+                            </p>
                             <Card padding="none">
                                 <div className="divide-y divide-slate-50">
                                     {stats.recentHistory?.length ? (
@@ -396,12 +433,21 @@ export default function VolunteerDashboard() {
                                 <Award className="h-24 w-24 -mr-8 -mt-8" />
                             </div>
                             <div className="relative z-10 space-y-4">
-                                <Badge variant="primary" className="bg-white/20 text-white border-none">Feature Update</Badge>
+                                <Badge variant="primary" className="bg-white/20 text-white border-none">
+                                    Feature Update
+                                </Badge>
                                 <h4 className="text-xl font-bold">New: Monthly Impact Reports</h4>
                                 <p className="text-sm opacity-90 leading-relaxed">
-                                    You can now generate automated impact certificates signed by the community board.
+                                    You can now generate automated impact certificates signed by the
+                                    community board.
                                 </p>
-                                <Button size="sm" className="bg-white text-hive-primary hover:bg-slate-50 w-full" onClick={() => window.open('/resume', '_blank')}>Generate Certificate</Button>
+                                <Button
+                                    size="sm"
+                                    className="bg-white text-hive-primary hover:bg-slate-50 w-full"
+                                    onClick={() => navigate('/resume')}
+                                >
+                                    Generate Certificate
+                                </Button>
                             </div>
                         </Card>
 
@@ -484,6 +530,159 @@ export default function VolunteerDashboard() {
                 </div>
             </main>
         </div>
+    );
+}
+
+function CommunityScoreBreakdownTooltip({
+    stats,
+    breakdown,
+    style
+}: {
+    stats: any;
+    breakdown: any;
+    style: React.CSSProperties;
+}) {
+    const b = breakdown;
+
+    return (
+        <div
+            role="tooltip"
+            style={style}
+            className="w-[17.5rem] rounded-lg bg-slate-900 text-white text-[11px] leading-relaxed shadow-2xl border border-slate-700 pointer-events-none"
+        >
+            <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-3 h-3 bg-slate-900 border-r border-b border-slate-700 rotate-45" />
+            <div className="relative p-3.5 space-y-2">
+                <p className="font-bold text-white border-b border-white/15 pb-2">
+                    Score breakdown ({stats.communityScore ?? 0} total)
+                </p>
+                {b ? (
+                    <div className="space-y-1.5 font-medium">
+                        <div className="flex justify-between gap-3">
+                            <span className="text-slate-300">Registered missions</span>
+                            <span className="tabular-nums text-right shrink-0">
+                                +{b.fromRegistrations}{' '}
+                                <span className="text-slate-400">({b.registeredMissions} × 100)</span>
+                            </span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                            <span className="text-slate-300">Verified check-ins</span>
+                            <span className="tabular-nums text-right shrink-0">
+                                +{b.fromCheckIns}{' '}
+                                <span className="text-slate-400">({b.verifiedMissions} × 50)</span>
+                            </span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                            <span className="text-slate-300">Verified hours</span>
+                            <span className="tabular-nums text-right shrink-0">
+                                +{b.fromHours}{' '}
+                                <span className="text-slate-400">({b.verifiedHours} × 10)</span>
+                            </span>
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-slate-300">
+                        100 pts per registration, 50 per check-in, 10 per verified hour.
+                    </p>
+                )}
+                <p className="text-slate-300 pt-2 border-t border-white/15">
+                    Level {stats.level || 1} — 500 points per level.
+                    {stats.pointsToNextLevel > 0
+                        ? ` ${stats.pointsToNextLevel} pts until Level ${(stats.level || 1) + 1}.`
+                        : ''}
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function CommunityScoreStatCard({ stats }: { stats: any }) {
+    const [showTip, setShowTip] = useState(false);
+    const [tipStyle, setTipStyle] = useState<React.CSSProperties>({});
+    const infoRef = useRef<HTMLButtonElement>(null);
+    const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const b = stats?.scoreBreakdown;
+
+    const positionTooltip = () => {
+        const el = infoRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setTipStyle({
+            position: 'fixed',
+            top: rect.top - 8,
+            left: rect.left + rect.width / 2,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 10000
+        });
+    };
+
+    const openTip = () => {
+        if (hideTimer.current) clearTimeout(hideTimer.current);
+        positionTooltip();
+        setShowTip(true);
+    };
+
+    const closeTip = () => {
+        hideTimer.current = setTimeout(() => setShowTip(false), 120);
+    };
+
+    useEffect(() => {
+        if (!showTip) return;
+        const onScrollOrResize = () => positionTooltip();
+        window.addEventListener('scroll', onScrollOrResize, true);
+        window.addEventListener('resize', onScrollOrResize);
+        return () => {
+            window.removeEventListener('scroll', onScrollOrResize, true);
+            window.removeEventListener('resize', onScrollOrResize);
+        };
+    }, [showTip]);
+
+    return (
+        <>
+            <Card className="hover:shadow-soft transition-shadow">
+                <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-hive-secondary/10 text-hive-secondary shrink-0">
+                            <TrendingUp className="h-5 w-5" />
+                        </div>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-xs font-bold text-hive-text-secondary uppercase tracking-wider">
+                                Community Score
+                            </span>
+                            <button
+                                ref={infoRef}
+                                type="button"
+                                className={cn(
+                                    'inline-flex h-5 w-5 items-center justify-center rounded-full border transition-colors shrink-0',
+                                    showTip
+                                        ? 'bg-hive-primary text-white border-hive-primary'
+                                        : 'bg-slate-100 text-hive-text-secondary border-slate-200 hover:bg-hive-primary/10 hover:text-hive-primary hover:border-hive-primary/30'
+                                )}
+                                aria-label="Community score breakdown"
+                                aria-expanded={showTip}
+                                onMouseEnter={openTip}
+                                onMouseLeave={closeTip}
+                                onFocus={openTip}
+                                onBlur={closeTip}
+                            >
+                                <Info className="h-3 w-3" strokeWidth={2.5} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="text-2xl font-black mb-1 text-hive-text-primary">
+                        {stats.communityScore ?? 0}
+                    </div>
+                    <div className="text-[10px] font-bold text-hive-text-secondary leading-snug">
+                        Level {stats.level || 1} · 100/reg + 50/check-in + 10/hr
+                    </div>
+                </CardContent>
+            </Card>
+
+            {showTip &&
+                createPortal(
+                    <CommunityScoreBreakdownTooltip stats={stats} breakdown={b} style={tipStyle} />,
+                    document.body
+                )}
+        </>
     );
 }
 
