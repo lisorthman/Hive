@@ -13,6 +13,23 @@ export const eventService = {
         }
     },
 
+    async getNGODashboardStats() {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/events/dashboard-stats`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to fetch dashboard stats');
+            return data.data;
+        } catch (error) {
+            console.error('Error fetching NGO dashboard stats:', error);
+            throw error;
+        }
+    },
+
     async getMyEvents() {
         try {
             const token = localStorage.getItem('token');
