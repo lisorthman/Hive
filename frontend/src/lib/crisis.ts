@@ -76,11 +76,11 @@ export const crisisService = {
         const response = await fetch(`${API_URL}/crisis/${eventId}/updates`, {
             method: 'POST',
             headers: authHeaders(),
-            body: JSON.stringify({ message, isPinned })
+            body: JSON.stringify({ message, isPinned, notifyVolunteers: true })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to post update');
-        return data.data;
+        return { update: data.data, notifiedCount: data.notifiedCount ?? 0 };
     },
 
     async getAnalytics(eventId: string) {

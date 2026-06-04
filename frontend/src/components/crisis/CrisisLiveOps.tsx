@@ -14,6 +14,7 @@ export function CrisisUpdatesTimeline({ eventId, canPost, compact }: Props) {
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
     const [busy, setBusy] = useState(false);
+    const [postFeedback, setPostFeedback] = useState<string | null>(null);
 
     const load = async () => {
         try {
@@ -33,10 +34,16 @@ export function CrisisUpdatesTimeline({ eventId, canPost, compact }: Props) {
     const postUpdate = async () => {
         if (!message.trim()) return;
         setBusy(true);
+        setPostFeedback(null);
         try {
-            await crisisService.createUpdate(eventId, message.trim());
+            const { notifiedCount } = await crisisService.createUpdate(eventId, message.trim());
             setMessage('');
             await load();
+            setPostFeedback(
+                notifiedCount > 0
+                    ? `Posted. ${notifiedCount} joined or waitlisted volunteer${notifiedCount === 1 ? '' : 's'} notified.`
+                    : 'Posted. No joined volunteers to notify yet.'
+            );
         } finally {
             setBusy(false);
         }
@@ -57,19 +64,30 @@ export function CrisisUpdatesTimeline({ eventId, canPost, compact }: Props) {
             </h2>
 
             {canPost && (
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        maxLength={500}
-                        placeholder="Shelter at capacity, water delivered..."
-                        className="flex-1 border border-rose-200 rounded-lg px-3 py-2 text-sm"
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && postUpdate()}
-                    />
-                    <Button size="sm" onClick={postUpdate} isLoading={busy}>
-                        Post
-                    </Button>
+                <div className="space-y-2">
+                    <p className="text-xs text-slate-600">
+                        Joined and waitlisted volunteers receive an in-app notification when you post
+                        (not volunteers who only viewed the mission).
+                    </p>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            maxLength={500}
+                            placeholder="Write a live update for your team..."
+                            className="flex-1 border border-rose-200 rounded-lg px-3 py-2 text-sm"
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && postUpdate()}
+                        />
+                        <Button size="sm" onClick={postUpdate} isLoading={busy}>
+                            Post
+                        </Button>
+                    </div>
+                    {postFeedback && (
+                        <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                            {postFeedback}
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -126,6 +144,13 @@ export function CrisisAnalyticsPanel({ eventId }: { eventId: string }) {
 
     if (!analytics) return null;
 
+    const hasActivity =
+        analytics.volunteersJoined > 0 ||
+        analytics.volunteersDeployed > 0 ||
+        analytics.totalHours > 0 ||
+        (analytics.resources?.itemsNeeded || 0) > 0 ||
+        analytics.situationUpdates > 0;
+
     const stats = [
         { label: 'Volunteers joined', value: analytics.volunteersJoined },
         { label: 'Deployed (checked-in)', value: analytics.volunteersDeployed },
@@ -156,6 +181,12 @@ export function CrisisAnalyticsPanel({ eventId }: { eventId: string }) {
     return (
         <section className="space-y-4">
             <h2 className="text-lg font-bold text-rose-900">Emergency analytics</h2>
+            {!hasActivity && (
+                <p className="text-sm text-slate-500">
+                    Numbers appear here as volunteers join, check in, you post resource requests, and
+                    publish live updates — nothing is pre-filled.
+                </p>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {stats.map((s) => (
                     <div

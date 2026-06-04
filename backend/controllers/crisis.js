@@ -309,13 +309,19 @@ exports.createCrisisUpdate = async (req, res) => {
             isPinned: isPinned === true
         });
 
+        let notifiedCount = 0;
         if (notifyVolunteers !== false) {
-            await notifyCrisisUpdate(mission, req.user, update.message);
+            const notifyResult = await notifyCrisisUpdate(mission, req.user, update.message);
+            notifiedCount = notifyResult?.sent ?? 0;
         }
 
         await update.populate('author', 'name role');
 
-        res.status(201).json({ success: true, data: update });
+        res.status(201).json({
+            success: true,
+            data: update,
+            notifiedCount
+        });
     } catch (err) {
         res.status(400).json({ success: false, error: err.message });
     }

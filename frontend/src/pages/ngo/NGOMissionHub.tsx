@@ -339,6 +339,12 @@ export default function NGOMissionHub() {
                             {skillsOnlyBroadcast && event.crisis?.requiredSkills?.length
                                 ? ` (skills: ${event.crisis.requiredSkills.join(', ')})`
                                 : ''}
+                            {matchedVolunteers.length === 0 && (
+                                <span className="block text-xs text-rose-800/90 mt-1 font-normal">
+                                    Volunteers must opt in under Emergency readiness on their profile
+                                    (available for emergencies, location, skills, and travel radius).
+                                </span>
+                            )}
                         </p>
                         <label className="flex items-center gap-2 text-sm text-rose-900">
                             <input
