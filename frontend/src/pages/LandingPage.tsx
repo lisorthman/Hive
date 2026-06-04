@@ -14,16 +14,79 @@ import {
     Award,
     TrendingUp,
     Globe,
-    Heart,
     Zap,
-    ArrowRight
+    ArrowRight,
+    Loader2
 } from 'lucide-react';
-import { motion, useInView, useMotionValue, useSpring } from 'framer-motion';
-import { useEffect, useRef } from 'react';
-import { authService } from '../lib/auth';
+import { motion } from 'framer-motion';
+import { useEffect, useState, useMemo } from 'react';
+import { eventService } from '../lib/events';
+import { missionPath } from '../lib/missions';
+import { EmergencyBadge } from '../components/crisis/EmergencyBadge';
+
+type Mission = {
+    _id: string;
+    title: string;
+    ngoName: string;
+    category: string;
+    date: string;
+    image?: string;
+    location?: { name?: string };
+    missionMode?: string;
+    crisis?: { urgencyLevel?: string };
+    missionType?: string;
+    capacity: number;
+    volunteersJoined?: string[];
+};
 
 export default function LandingPage() {
     const navigate = useNavigate();
+    const [missions, setMissions] = useState<Mission[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                setIsLoading(true);
+                setLoadError(null);
+                const data = await eventService.getEvents();
+                setMissions(Array.isArray(data) ? data : []);
+            } catch (err: any) {
+                setLoadError(err.message || 'Could not load missions');
+                setMissions([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        load();
+    }, []);
+
+    const upcoming = useMemo(() => {
+        const now = Date.now();
+        return missions
+            .filter((m) => new Date(m.date).getTime() >= now)
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }, [missions]);
+
+    const featured = upcoming.slice(0, 3);
+
+    const platformStats = useMemo(() => {
+        const ngoNames = new Set(
+            missions.map((m) => m.ngoName).filter((name): name is string => !!name)
+        );
+        const openSlots = upcoming.reduce(
+            (sum, m) =>
+                sum + Math.max(0, m.capacity - (m.volunteersJoined?.length || 0)),
+            0
+        );
+        return {
+            upcomingCount: upcoming.length,
+            partnerCount: ngoNames.size,
+            openSlots
+        };
+    }, [missions, upcoming]);
+
     return (
         <div className="min-h-screen bg-hive-background">
             <Navbar />
@@ -51,10 +114,27 @@ export default function LandingPage() {
                             Hive connects passionate volunteers with meaningful opportunities. Track your hours, earn recognition, and witness the change you bring to the world.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                            <Button size="lg" className="w-full sm:w-auto px-10 gap-2" onClick={() => navigate('/register', { state: { role: 'volunteer' } })}>
-                                Join as Volunteer <ArrowRight className="h-5 w-5" />
+                            <Button
+                                size="lg"
+                                className="w-full sm:w-auto px-10 gap-2"
+                                onClick={() => navigate('/discovery')}
+                            >
+                                Browse missions <ArrowRight className="h-5 w-5" />
                             </Button>
-                            <Button variant="outline" size="lg" className="w-full sm:w-auto px-10" onClick={() => navigate('/register', { state: { role: 'ngo' } })}>
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="w-full sm:w-auto px-10"
+                                onClick={() => navigate('/register', { state: { role: 'volunteer' } })}
+                            >
+                                Join as Volunteer
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="w-full sm:w-auto px-10"
+                                onClick={() => navigate('/register', { state: { role: 'ngo' } })}
+                            >
                                 Register as NGO
                             </Button>
                         </div>
@@ -67,134 +147,121 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-3xl font-bold">How Hive Works</h2>
-                        <p className="text-hive-text-secondary max-w-xl mx-auto">Three simple steps to start making a real difference in your community today.</p>
+                        <p className="text-hive-text-secondary max-w-xl mx-auto">
+                            Three simple steps to start making a real difference in your community today.
+                        </p>
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-12">
                         <StepCard
                             icon={<Search className="h-8 w-8 text-hive-primary" />}
                             title="Discover local events"
-                            description="Browse thousands of verified volunteering opportunities in your area that match your skills and interests."
+                            description="Browse verified volunteering opportunities on the map or list—no account required to explore."
                             delay={0.1}
                         />
                         <StepCard
                             icon={<Zap className="h-8 w-8 text-hive-secondary" />}
                             title="Volunteer & check in"
-                            description="Apply with one click. Use our QR-based check-in system to securely log your volunteering hours."
+                            description="Create a free account to join missions, RSVP for recurring dates, and log hours with organizer check-in."
                             delay={0.2}
                         />
                         <StepCard
                             icon={<Award className="h-8 w-8 text-hive-primary" />}
                             title="Earn recognition"
-                            description="Get certified impact reports and gamified achievements to showcase your community contributions."
+                            description="Build your volunteer profile with verified hours, reviews, and impact stories from the missions you support."
                             delay={0.3}
                         />
                     </div>
                 </div>
             </section>
 
-            {/* Featured Community Events */}
+            {/* Upcoming missions from API */}
             <section className="py-24">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-end justify-between mb-12">
+                    <div className="flex items-end justify-between mb-12 gap-4 flex-wrap">
                         <div className="space-y-2">
-                            <h2 className="text-3xl font-bold">Featured Community Events</h2>
-                            <p className="text-hive-text-secondary">Join these upcoming missions and make an impact.</p>
+                            <h2 className="text-3xl font-bold">Upcoming missions</h2>
+                            <p className="text-hive-text-secondary">
+                                Live opportunities from NGOs on Hive—updated from the community feed.
+                            </p>
                         </div>
-                        <Button variant="ghost" className="gap-1 hidden sm:flex" onClick={() => navigate('/discovery')}>
+                        <Button variant="ghost" className="gap-1" onClick={() => navigate('/discovery')}>
                             View all events <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8">
-                        <EventCard
-                            image="https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=800&q=80"
-                            ngo="GreenEarth Foundation"
-                            title="Beach Cleanup & Waste Sorting"
-                            date="Sat, Oct 12 • 09:00 AM"
-                            location="Silver Bay Coastline"
-                            category="Environmental"
-                        />
-                        <EventCard
-                            image="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=800&q=80"
-                            ngo="Food For All"
-                            title="Community Kitchen Assistance"
-                            date="Sun, Oct 13 • 11:30 AM"
-                            location="Downtown Community Center"
-                            category="Social Work"
-                        />
-                        <EventCard
-                            image="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80"
-                            ngo="BrightFuture Org"
-                            title="Youth Mentoring Workshop"
-                            date="Wed, Oct 16 • 04:00 PM"
-                            location="Public Library Hall B"
-                            category="Education"
-                        />
-                    </div>
+                    {isLoading ? (
+                        <div className="flex justify-center py-16">
+                            <Loader2 className="h-10 w-10 text-hive-primary animate-spin" />
+                        </div>
+                    ) : loadError ? (
+                        <Card className="p-8 text-center space-y-4">
+                            <p className="text-hive-text-secondary">{loadError}</p>
+                            <Button onClick={() => navigate('/discovery')}>Open event discovery</Button>
+                        </Card>
+                    ) : featured.length === 0 ? (
+                        <Card className="p-8 text-center space-y-4">
+                            <p className="text-hive-text-secondary">
+                                No upcoming missions are listed right now. Check back soon or explore the full catalog.
+                            </p>
+                            <Button onClick={() => navigate('/discovery')}>Browse discovery</Button>
+                        </Card>
+                    ) : (
+                        <div className="grid md:grid-cols-3 gap-8">
+                            {featured.map((mission) => (
+                                <FeaturedMissionCard key={mission._id} mission={mission} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </section>
 
-            {/* Community Impact Section */}
+            {/* Platform snapshot from live data */}
             <section className="py-24 bg-hive-primary text-white relative overflow-hidden">
                 <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" />
                 </div>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-                    <h2 className="text-4xl font-bold mb-16">Our Cumulative Impact</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                        <StatItem value="12,450+" label="Volunteers" />
-                        <StatItem value="85,200" label="Hours Served" />
-                        <StatItem value="450+" label="NGO Partners" />
-                        <StatItem value="1,200+" label="Events Completed" />
-                    </div>
+                    <h2 className="text-4xl font-bold mb-4">On the platform now</h2>
+                    <p className="text-white/80 mb-12 max-w-lg mx-auto text-sm">
+                        Counts reflect missions currently published in Hive—not marketing estimates.
+                    </p>
+                    {isLoading ? (
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto opacity-80" />
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                            <StatItem value={platformStats.upcomingCount} label="Upcoming missions" />
+                            <StatItem value={platformStats.partnerCount} label="NGO partners listed" />
+                            <StatItem value={platformStats.openSlots} label="Open volunteer slots" />
+                        </div>
+                    )}
                 </div>
             </section>
 
             {/* Trust & Credibility Section */}
             <section className="py-24">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
-                        <div className="space-y-8">
-                            <h2 className="text-4xl font-extrabold text-hive-text-primary leading-tight">
-                                Built on Trust, Transparency, and Community.
-                            </h2>
-                            <div className="space-y-6">
-                                <TrustItem
-                                    title="Verified Partners"
-                                    description="Every NGO on Hive undergoes a rigorous verification process to ensure your time goes to legitimate causes."
-                                />
-                                <TrustItem
-                                    title="Audited Impact"
-                                    description="Our hours tracking system is verified by event organizers, providing you with legitimate volunteering certificates."
-                                />
-                                <TrustItem
-                                    title="Data Privacy"
-                                    description="We prioritize the security of your personal data and your community's privacy above all else."
-                                />
-                            </div>
+                    <div className="max-w-3xl mx-auto space-y-8 text-center">
+                        <h2 className="text-4xl font-extrabold text-hive-text-primary leading-tight">
+                            Built on Trust, Transparency, and Community.
+                        </h2>
+                        <div className="space-y-6 text-left">
+                            <TrustItem
+                                title="Verified Partners"
+                                description="NGOs complete Hive verification before publishing missions, so volunteers know who they are supporting."
+                            />
+                            <TrustItem
+                                title="Audited Impact"
+                                description="Check-ins and attendance are confirmed by organizers, feeding hours and impact reporting you can trust."
+                            />
+                            <TrustItem
+                                title="Data Privacy"
+                                description="You control your profile and story visibility; browse missions publicly without signing in."
+                            />
                         </div>
-                        <div className="relative">
-                            <div className="absolute -inset-4 bg-hive-primary/5 rounded-2xl -z-10 rotate-3" />
-                            <div className="absolute -inset-4 bg-hive-secondary/5 rounded-2xl -z-10 -rotate-3" />
-                            <Card className="p-8 space-y-6 relative border-slate-200">
-                                <div className="flex gap-1 text-amber-400">
-                                    {[...Array(5)].map((_, i) => <Heart key={i} className="h-5 w-5 fill-current" />)}
-                                </div>
-                                <p className="text-lg text-hive-text-primary italic leading-relaxed">
-                                    "Hive has completely transformed how our NGO manages volunteers. The check-in system and real-time impact reports allow us to focus more on our mission and less on paperwork."
-                                </p>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden">
-                                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80" alt="Avatar" />
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-hive-text-primary">Sarah Jenkins</div>
-                                        <div className="text-sm text-hive-text-secondary">Director, Outreach Partners</div>
-                                    </div>
-                                </div>
-                            </Card>
-                        </div>
+                        <Button size="lg" className="gap-2" onClick={() => navigate('/discovery')}>
+                            Explore missions <ChevronRight className="h-5 w-5" />
+                        </Button>
                     </div>
                 </div>
             </section>
@@ -212,28 +279,60 @@ export default function LandingPage() {
                         <div className="space-y-4">
                             <h4 className="font-bold">Platform</h4>
                             <ul className="space-y-2 text-hive-text-secondary">
-                                <li><a href="#" className="hover:text-hive-primary">About Us</a></li>
-                                <li><a href="#" className="hover:text-hive-primary">Success Stories</a></li>
-                                <li><a href="#" className="hover:text-hive-primary">Trust & Safety</a></li>
-                                <li><a href="#" className="hover:text-hive-primary">NGO Directory</a></li>
+                                <li>
+                                    <Link to="/discovery" className="hover:text-hive-primary">
+                                        Find events
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link to="/crisis" className="hover:text-hive-primary">
+                                        Crisis Hub
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link to="/register" className="hover:text-hive-primary">
+                                        Create account
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link to="/login" className="hover:text-hive-primary">
+                                        Log in
+                                    </Link>
+                                </li>
                             </ul>
                         </div>
                         <div className="space-y-4">
-                            <h4 className="font-bold">Legal</h4>
+                            <h4 className="font-bold">Get started</h4>
                             <ul className="space-y-2 text-hive-text-secondary">
-                                <li><a href="#" className="hover:text-hive-primary">Privacy Policy</a></li>
-                                <li><a href="#" className="hover:text-hive-primary">Terms of Service</a></li>
-                                <li><a href="#" className="hover:text-hive-primary">Cookie Policy</a></li>
-                                <li><a href="#" className="hover:text-hive-primary">Contact</a></li>
+                                <li>
+                                    <button
+                                        type="button"
+                                        className="hover:text-hive-primary text-left"
+                                        onClick={() => navigate('/register', { state: { role: 'volunteer' } })}
+                                    >
+                                        Volunteer registration
+                                    </button>
+                                </li>
+                                <li>
+                                    <button
+                                        type="button"
+                                        className="hover:text-hive-primary text-left"
+                                        onClick={() => navigate('/register', { state: { role: 'ngo' } })}
+                                    >
+                                        NGO registration
+                                    </button>
+                                </li>
                             </ul>
                         </div>
                     </div>
                     <div className="pt-8 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <p className="text-sm text-hive-text-secondary">© 2024 Hive Platform Inc. All rights reserved.</p>
+                        <p className="text-sm text-hive-text-secondary">
+                            © {new Date().getFullYear()} Hive Platform. All rights reserved.
+                        </p>
                         <div className="flex gap-6">
-                            <Globe className="h-5 w-5 text-hive-text-secondary cursor-pointer hover:text-hive-primary" />
-                            <Users className="h-5 w-5 text-hive-text-secondary cursor-pointer hover:text-hive-primary" />
-                            <TrendingUp className="h-5 w-5 text-hive-text-secondary cursor-pointer hover:text-hive-primary" />
+                            <Globe className="h-5 w-5 text-hive-text-secondary" />
+                            <Users className="h-5 w-5 text-hive-text-secondary" />
+                            <TrendingUp className="h-5 w-5 text-hive-text-secondary" />
                         </div>
                     </div>
                 </div>
@@ -242,8 +341,17 @@ export default function LandingPage() {
     );
 }
 
-
-function StepCard({ icon, title, description, delay }: { icon: React.ReactNode, title: string, description: string, delay: number }) {
+function StepCard({
+    icon,
+    title,
+    description,
+    delay
+}: {
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+    delay: number;
+}) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -252,105 +360,96 @@ function StepCard({ icon, title, description, delay }: { icon: React.ReactNode, 
             transition={{ duration: 0.5, delay }}
             className="space-y-4"
         >
-            <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-6">
-                {icon}
-            </div>
+            <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-6">{icon}</div>
             <h3 className="text-xl font-bold text-hive-text-primary">{title}</h3>
             <p className="text-hive-text-secondary leading-relaxed">{description}</p>
         </motion.div>
     );
 }
 
-function EventCard({ image, ngo, title, date, location, category }: { image: string, ngo: string, title: string, date: string, location: string, category: string }) {
+function FeaturedMissionCard({ mission }: { mission: Mission }) {
     const navigate = useNavigate();
-
-    const handleViewDetail = () => {
-        const user = authService.getCurrentUser();
-        if (!user) {
-            alert("Please create a volunteer account to see the full mission details and join the cause!");
-            navigate('/register', { state: { role: 'volunteer' } });
-            return;
-        }
-        navigate('/discovery'); // Landing page cards usually go to discovery or a specific ID if available
-    };
+    const dateLabel = new Date(mission.date).toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+    const spotsLeft = Math.max(
+        0,
+        mission.capacity - (mission.volunteersJoined?.length || 0)
+    );
 
     return (
-        <Card padding="none" className="group cursor-pointer hover:translate-y-[-4px] transition-all duration-300" onClick={handleViewDetail}>
-            <div className="h-48 overflow-hidden relative">
-                <div className="absolute top-4 right-4 z-10">
-                    <Badge variant="primary" className="bg-white/90 backdrop-blur-sm shadow-sm">{category}</Badge>
+        <Card
+            padding="none"
+            className="group cursor-pointer hover:translate-y-[-4px] transition-all duration-300"
+            onClick={() => navigate(missionPath(mission))}
+        >
+            <div className="h-48 overflow-hidden relative bg-slate-100">
+                <div className="absolute top-4 left-4 right-4 z-10 flex flex-wrap gap-2 justify-between">
+                    <Badge variant="primary" className="bg-white/90 backdrop-blur-sm shadow-sm">
+                        {mission.category}
+                    </Badge>
+                    {mission.missionMode === 'emergency' && (
+                        <EmergencyBadge urgency={mission.crisis?.urgencyLevel} />
+                    )}
                 </div>
-                <img src={image} alt={title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                {mission.image && (
+                    <img
+                        src={mission.image}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                )}
             </div>
             <CardContent className="p-6 space-y-4">
-                <div className="text-xs font-bold text-hive-primary uppercase tracking-wider">{ngo}</div>
-                <h3 className="text-xl font-bold text-hive-text-primary group-hover:text-hive-primary transition-colors">{title}</h3>
+                <div className="text-xs font-bold text-hive-primary uppercase tracking-wider">
+                    {mission.ngoName}
+                </div>
+                <h3 className="text-xl font-bold text-hive-text-primary group-hover:text-hive-primary transition-colors line-clamp-2">
+                    {mission.title}
+                </h3>
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-hive-text-secondary">
-                        <Calendar className="h-4 w-4" /> <span>{date}</span>
+                        <Calendar className="h-4 w-4 shrink-0" />
+                        <span>{dateLabel}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-hive-text-secondary">
-                        <MapPin className="h-4 w-4" /> <span>{location}</span>
+                        <MapPin className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{mission.location?.name || 'Location TBD'}</span>
                     </div>
                 </div>
-                <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent group" onClick={(e) => { e.stopPropagation(); handleViewDetail(); }}>
-                    <span className="text-sm font-bold">Details</span>
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                <p className="text-xs font-bold text-hive-text-secondary">
+                    {spotsLeft} slot{spotsLeft === 1 ? '' : 's'} open
+                </p>
+                <Button
+                    variant="ghost"
+                    className="w-full justify-between px-0 hover:bg-transparent group/btn"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(missionPath(mission));
+                    }}
+                >
+                    <span className="text-sm font-bold">View details</span>
+                    <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
                 </Button>
             </CardContent>
         </Card>
     );
 }
 
-function Counter({ value, duration = 2 }: { value: string, duration?: number }) {
-    const ref = useRef<HTMLSpanElement>(null);
-    const isInView = useInView(ref, { once: true, margin: "-100px" });
-
-    // Parse number from string (e.g., "12,450+" -> 12450)
-    const numericValue = parseInt(value.replace(/[,+]/g, ''));
-    const suffix = value.match(/[+]/g) ? '+' : '';
-    const hasComma = value.includes(',');
-
-    const motionValue = useMotionValue(0);
-    const springValue = useSpring(motionValue, {
-        duration: duration * 1000,
-        bounce: 0,
-    });
-
-    useEffect(() => {
-        if (isInView) {
-            motionValue.set(numericValue);
-        }
-    }, [isInView, motionValue, numericValue]);
-
-    useEffect(() => {
-        springValue.on("change", (latest) => {
-            if (ref.current) {
-                const rounded = Math.floor(latest);
-                let formatted = rounded.toString();
-                if (hasComma) {
-                    formatted = rounded.toLocaleString();
-                }
-                ref.current.textContent = formatted + suffix;
-            }
-        });
-    }, [springValue, suffix, hasComma]);
-
-    return <span ref={ref}>0{suffix}</span>;
-}
-
-function StatItem({ value, label }: { value: string, label: string }) {
+function StatItem({ value, label }: { value: number; label: string }) {
     return (
         <div className="space-y-1">
-            <div className="text-4xl md:text-5xl font-black">
-                <Counter value={value} />
-            </div>
+            <div className="text-4xl md:text-5xl font-black tabular-nums">{value.toLocaleString()}</div>
             <div className="text-sm font-medium uppercase tracking-widest opacity-80">{label}</div>
         </div>
     );
 }
 
-function TrustItem({ title, description }: { title: string, description: string }) {
+function TrustItem({ title, description }: { title: string; description: string }) {
     return (
         <div className="flex gap-4">
             <div className="mt-1 shrink-0">
