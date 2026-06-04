@@ -68,12 +68,17 @@ export default function NGODashboard() {
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const now = new Date();
-    const activeHostedEvents = events.filter(
-        (e) =>
-            e.status !== 'completed' &&
-            e.status !== 'cancelled' &&
-            new Date(e.date) >= now
-    );
+    const activeHostedEvents = events.filter((e) => {
+        if (e.status === 'completed' || e.status === 'cancelled') return false;
+        if (
+            e.missionMode === 'emergency' &&
+            e.crisis?.crisisStatus &&
+            e.crisis.crisisStatus !== 'resolved'
+        ) {
+            return true;
+        }
+        return new Date(e.date) >= now;
+    });
     const completedHostedEvents = events.filter((e) => e.status === 'completed');
     const isEventLocked = (event: any) =>
         event.status === 'completed' || event.status === 'cancelled';
@@ -976,13 +981,20 @@ function HostedEventsSection({
                             {events.map((event) => (
                                 <tr key={event._id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate(`/ngo-mission/${event._id}`)}
-                                            className="font-bold text-slate-900 text-left hover:text-hive-primary hover:underline"
-                                        >
-                                            {event.title}
-                                        </button>
+                                        <div className="flex flex-col gap-1 items-start">
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate(`/ngo-mission/${event._id}`)}
+                                                className="font-bold text-slate-900 text-left hover:text-hive-primary hover:underline"
+                                            >
+                                                {event.title}
+                                            </button>
+                                            {event.missionMode === 'emergency' && (
+                                                <span className="inline-flex px-2 py-0.5 rounded bg-rose-100 text-rose-700 text-[9px] font-black uppercase">
+                                                    Emergency
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-slate-600">
                                         {new Date(event.date).toLocaleDateString()}
