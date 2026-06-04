@@ -4,7 +4,6 @@ import { ArrowLeft, Printer, Award, CheckCircle, ShieldCheck, Mail, CalendarDays
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../lib/auth';
-import { eventService } from '../../lib/events';
 import { attendanceService } from '../../lib/attendance';
 import { cn } from '../../lib/utils';
 
@@ -12,19 +11,16 @@ export default function ImpactResume() {
     const navigate = useNavigate();
     const user = authService.getCurrentUser();
     const [stats, setStats] = useState<any>(null);
-    const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    const participatedMissions = stats?.verifiedMissions || [];
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const [volunteerStats, joined] = await Promise.all([
-                    attendanceService.getVolunteerStats(),
-                    eventService.getJoinedEvents()
-                ]);
+                const volunteerStats = await attendanceService.getVolunteerStats();
                 setStats(volunteerStats);
-                setJoinedEvents(joined || []);
             } catch (err) {
                 console.error('Error fetching resume data:', err);
             } finally {
@@ -35,20 +31,31 @@ export default function ImpactResume() {
         fetchData();
     }, []);
 
-    // Print automatically once data is loaded
     useEffect(() => {
-        if (!isLoading && stats) {
+        if (!isLoading && stats && participatedMissions.length > 0) {
             const timer = setTimeout(() => {
                 window.print();
             }, 800);
             return () => clearTimeout(timer);
         }
-    }, [isLoading, stats]);
+    }, [isLoading, stats, participatedMissions.length]);
 
     if (isLoading || !stats) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-hive-background">
                 <Loader2 className="h-10 w-10 text-hive-primary animate-spin" />
+            </div>
+        );
+    }
+
+    if (participatedMissions.length === 0) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-hive-background p-6 text-center gap-4">
+                <p className="text-hive-text-secondary max-w-md">
+                    Your impact certificate lists missions where an organizer verified your check-in.
+                    Complete at least one checked-in mission to generate a report.
+                </p>
+                <Button onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
             </div>
         );
     }
@@ -176,25 +183,26 @@ export default function ImpactResume() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {joinedEvents.length > 0 ? (
-                                        joinedEvents.map((event: any) => (
-                                                <tr key={event._id} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="p-3.5 font-extrabold text-slate-900">{event.title}</td>
-                                                    <td className="p-3.5 font-medium text-slate-600">{event.ngoName}</td>
-                                                    <td className="p-3.5 font-medium text-slate-500">{new Date(event.date).toLocaleDateString()}</td>
-                                                    <td className="p-3.5 text-center">
-                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700">
-                                                            <CheckCircle className="h-3 w-3" /> VERIFIED
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-3.5 text-right font-black text-slate-900">4.0 hrs</td>
-                                                </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={5} className="p-8 text-center text-slate-400 italic">No missions completed in this log.</td>
+                                    {participatedMissions.map((mission: any) => (
+                                        <tr
+                                            key={mission.attendanceId}
+                                            className="hover:bg-slate-50/50 transition-colors"
+                                        >
+                                            <td className="p-3.5 font-extrabold text-slate-900">{mission.title}</td>
+                                            <td className="p-3.5 font-medium text-slate-600">{mission.ngoName}</td>
+                                            <td className="p-3.5 font-medium text-slate-500">
+                                                {new Date(mission.date).toLocaleDateString()}
+                                            </td>
+                                            <td className="p-3.5 text-center">
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700">
+                                                    <CheckCircle className="h-3 w-3" /> CHECKED IN
+                                                </span>
+                                            </td>
+                                            <td className="p-3.5 text-right font-black text-slate-900">
+                                                {(mission.hoursWorked || 0).toFixed(1)} hrs
+                                            </td>
                                         </tr>
-                                    )}
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
