@@ -19,7 +19,7 @@ exports.getNGOProfile = async (req, res) => {
         }
 
         const events = await Event.find({ organization: ngo._id }).select(
-            'title date status category averageRating reviewCount capacity volunteersJoined'
+            'title date status category averageRating reviewCount capacity volunteersJoined location missionMode crisis'
         );
 
         const eventIds = events.map((e) => e._id);
@@ -42,9 +42,21 @@ exports.getNGOProfile = async (req, res) => {
                 ) / 10
                 : 0;
 
-        const activeEvents = events.filter((e) =>
-            ['upcoming', 'ongoing'].includes(e.status)
-        );
+        const isActiveMission = (e) => {
+            if (['completed', 'cancelled'].includes(e.status)) return false;
+            if (
+                e.missionMode === 'emergency' &&
+                e.crisis?.crisisStatus &&
+                e.crisis.crisisStatus !== 'resolved'
+            ) {
+                return true;
+            }
+            return ['upcoming', 'ongoing'].includes(e.status);
+        };
+
+        const activeEvents = events.filter(isActiveMission);
+        const emergencyMissions = activeEvents.filter((e) => e.missionMode === 'emergency');
+        const regularActiveEvents = activeEvents.filter((e) => e.missionMode !== 'emergency');
         const pastEvents = events.filter((e) =>
             ['completed', 'cancelled'].includes(e.status)
         );
@@ -65,7 +77,8 @@ exports.getNGOProfile = async (req, res) => {
                     totalVolunteerHours,
                     averageRating
                 },
-                activeEvents,
+                activeEvents: regularActiveEvents,
+                emergencyMissions,
                 pastEvents
             }
         });

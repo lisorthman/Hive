@@ -8,12 +8,15 @@ import {
     Star,
     Loader2,
     ShieldCheck,
-    MapPin
+    MapPin,
+    Zap
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { ngoService } from '../../lib/ngos';
+import { EmergencyBadge } from '../../components/crisis/EmergencyBadge';
+import { DISASTER_LABELS } from '../../lib/crisis';
 
 export default function NGOProfile() {
     const { id } = useParams<{ id: string }>();
@@ -56,7 +59,7 @@ export default function NGOProfile() {
         );
     }
 
-    const { ngo, stats, activeEvents, pastEvents } = profile;
+    const { ngo, stats, activeEvents, emergencyMissions = [], pastEvents } = profile;
 
     return (
         <div className="min-h-screen bg-hive-background pb-12">
@@ -104,6 +107,12 @@ export default function NGOProfile() {
                     </div>
                 </section>
 
+                <EmergencyMissionList
+                    title="Active Emergency Missions"
+                    events={emergencyMissions}
+                    navigate={navigate}
+                    empty="No active emergency missions right now."
+                />
                 <EventList title="Active Missions" events={activeEvents} navigate={navigate} empty="No active missions right now." />
                 <EventList title="Past Missions" events={pastEvents} navigate={navigate} empty="No completed missions yet." />
             </main>
@@ -118,6 +127,66 @@ function StatBox({ icon, label, value }: { icon: React.ReactNode; label: string;
             <div className="text-2xl font-black text-hive-text-primary">{value}</div>
             <div className="text-[10px] font-bold text-hive-text-secondary uppercase tracking-wider">{label}</div>
         </div>
+    );
+}
+
+function EmergencyMissionList({
+    title,
+    events,
+    navigate,
+    empty
+}: {
+    title: string;
+    events: any[];
+    navigate: (path: string) => void;
+    empty: string;
+}) {
+    return (
+        <section className="space-y-4">
+            <h2 className="text-xl font-bold text-hive-text-primary flex items-center gap-2">
+                <Zap className="h-5 w-5 text-rose-500" />
+                {title}
+            </h2>
+            {events.length === 0 ? (
+                <p className="text-sm text-hive-text-secondary bg-white p-6 rounded-xl border border-slate-100">
+                    {empty}
+                </p>
+            ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                    {events.map((event) => (
+                        <Card
+                            key={event._id}
+                            className="border-rose-200 bg-rose-50/30 hover:border-rose-300 cursor-pointer transition-all"
+                            onClick={() => navigate(`/event/${event._id}`)}
+                        >
+                            <CardContent className="p-5 space-y-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <EmergencyBadge urgency={event.crisis?.urgencyLevel} />
+                                    <Badge variant="secondary" className="text-[10px]">
+                                        {DISASTER_LABELS[event.crisis?.disasterType] || 'Crisis'}
+                                    </Badge>
+                                </div>
+                                <h3 className="font-bold text-hive-text-primary line-clamp-2">{event.title}</h3>
+                                {event.crisis?.affectedAreaName && (
+                                    <p className="text-xs text-rose-800/80 font-medium">
+                                        {event.crisis.affectedAreaName}
+                                        {event.crisis?.radiusKm
+                                            ? ` · ${event.crisis.radiusKm} km alert radius`
+                                            : ''}
+                                    </p>
+                                )}
+                                <div className="flex items-center gap-2 text-xs text-hive-text-secondary">
+                                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">
+                                        {event.location?.name || 'TBD'}
+                                    </span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </section>
     );
 }
 
