@@ -96,7 +96,9 @@ export default function EventDetail() {
                     : await eventService.getEvent(id);
                 setEvent(data);
 
-                const currentUser = authService.getCurrentUser();
+                const sessionUser = authService.isAuthenticated()
+                    ? authService.getCurrentUser()
+                    : null;
                 setIsFull(
                     (data.volunteersJoined?.length || 0) >= data.capacity
                 );
@@ -112,7 +114,7 @@ export default function EventDetail() {
                     }
                 }
 
-                if (currentUser?.id && id) {
+                if (sessionUser?.id && id) {
                     try {
                         const p = isInstance
                             ? await instanceService.getParticipation(id)
@@ -184,6 +186,10 @@ export default function EventDetail() {
 
     const handleJoin = async () => {
         if (!event || !id) return;
+        if (!authService.isAuthenticated()) {
+            navigate('/login', { state: { from: location.pathname } });
+            return;
+        }
         if (event.useShiftSlots && !selectedShiftSlotId) {
             setError('Please select a shift time slot');
             return;
@@ -324,11 +330,14 @@ export default function EventDetail() {
                 </div>
                 <h2 className="text-xl font-bold text-hive-text-primary mb-2">Event not found</h2>
                 <p className="text-hive-text-secondary mb-6">{error || "We couldn't find the mission you're looking for."}</p>
-                <Button onClick={() => {
-                    const currentUser = authService.getCurrentUser();
-                    navigate(currentUser?.role === 'ngo' ? '/ngo-dashboard' : '/discovery');
-                }}>
-                    Back to {authService.getCurrentUser()?.role === 'ngo' ? 'Dashboard' : 'Discovery'}
+                <Button
+                    onClick={() => {
+                        const u = authService.isAuthenticated() ? authService.getCurrentUser() : null;
+                        if (u?.role === 'ngo') navigate('/ngo-dashboard', { replace: true });
+                        else navigate('/discovery', { replace: true });
+                    }}
+                >
+                    Back to Discovery
                 </Button>
             </div>
         );
@@ -350,8 +359,20 @@ export default function EventDetail() {
     const coordinates: [number, number] = hasValidCoords ? [lat, lng] : [6.9271, 79.8612];
 
     const orgId = (event.organization?._id || event.organization)?.toString();
-    const isOwner = authService.getCurrentUser()?.id === orgId;
+    const currentUser = authService.isAuthenticated() ? authService.getCurrentUser() : null;
+    const isGuest = !currentUser;
+    const isOwner = currentUser?.id === orgId;
     const isEmergency = event.missionMode === 'emergency';
+    const isMissionClosed =
+        event.status === 'completed' || event.status === 'cancelled';
+    const canVolunteerParticipate = !isMissionClosed && !isOwner;
+    const goBackFromDetail = () => {
+        if (currentUser?.role === 'ngo') {
+            navigate('/ngo-dashboard', { replace: true });
+            return;
+        }
+        navigate('/discovery', { replace: true });
+    };
     const canRapidCheckIn =
         isEmergency &&
         hasJoined &&
@@ -364,14 +385,13 @@ export default function EventDetail() {
             <nav className="bg-white border-b border-slate-100 sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                     <button
-                        onClick={() => {
-                            const currentUser = authService.getCurrentUser();
-                            navigate(currentUser?.role === 'ngo' ? '/ngo-dashboard' : '/discovery');
-                        }}
+                        onClick={goBackFromDetail}
                         className="p-2 -ml-2 text-hive-text-secondary hover:text-hive-text-primary transition-colors flex items-center gap-1 group"
                     >
                         <ChevronLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-                        <span className="text-sm font-bold">Back to {authService.getCurrentUser()?.role === 'ngo' ? 'Dashboard' : 'Discovery'}</span>
+                        <span className="text-sm font-bold">
+                            Back to {currentUser?.role === 'ngo' ? 'Dashboard' : 'Discovery'}
+                        </span>
                     </button>
 
                     <div className="flex items-center gap-2">
@@ -412,6 +432,11 @@ export default function EventDetail() {
                                 {isInstance && (
                                     <Badge variant="secondary" className="px-3 py-1 font-bold bg-violet-50 text-violet-700 border-violet-100">
                                         Recurring · RSVP this date
+                                    </Badge>
+                                )}
+                                {isMissionClosed && (
+                                    <Badge variant="secondary" className="px-3 py-1 font-bold bg-slate-100 text-slate-700 border-slate-200 capitalize">
+                                        {event.status}
                                     </Badge>
                                 )}
                                 {event.useShiftSlots && (
@@ -488,7 +513,7 @@ export default function EventDetail() {
                                     slots={shiftSlotsForPicker}
                                     selectedSlotId={selectedShiftSlotId}
                                     onSelect={setSelectedShiftSlotId}
-                                    disabled={hasJoined || onWaitlist}
+                                    disabled={isGuest || hasJoined || onWaitlist}
                                 />
                             </section>
                         )}
@@ -604,7 +629,7 @@ export default function EventDetail() {
                         <section className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-xl font-bold">Mission Media Gallery</h2>
-                                {(isOwner || authService.getCurrentUser()?.role === 'admin') && (
+                                {(isOwner || currentUser?.role === 'admin') && (
                                     <Button
                                         size="sm"
                                         variant="outline"
@@ -681,7 +706,7 @@ export default function EventDetail() {
                         <div id="mission-discussion">
                             <EventDiscussionSection
                                 eventId={id!}
-                                canComment={hasJoined || !!isOwner}
+                                canComment={!isGuest && (hasJoined || !!isOwner)}
                             />
                         </div>
                         )}
@@ -711,7 +736,9 @@ export default function EventDetail() {
                                         <div className="space-y-2">
                                             <h3 className="text-xl font-bold text-hive-text-primary">Mission Management</h3>
                                             <p className="text-xs text-hive-text-secondary leading-relaxed">
-                                                You are the organizer of this event. You can modify its details or cancel it if needed.
+                                                {isMissionClosed
+                                                    ? 'This mission is closed. View the mission hub for attendance and impact.'
+                                                    : 'You are the organizer of this event. You can modify its details or cancel it if needed.'}
                                             </p>
                                         </div>
 
@@ -723,28 +750,42 @@ export default function EventDetail() {
                                             >
                                                 <ClipboardList className="h-5 w-5 mr-2" /> Mission hub
                                             </Button>
-                                            <Button
-                                                className="w-full py-6 font-bold text-lg rounded-xl group"
-                                                onClick={() => navigate(`/ngo-edit/${id}`)}
-                                            >
-                                                <Edit className="h-5 w-5 mr-2" /> Edit Mission
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                className="w-full py-6 font-bold text-lg rounded-xl text-rose-600 border-rose-100 hover:bg-rose-50"
-                                                onClick={() => {
-                                                    if (window.confirm('Are you sure you want to delete this event?')) {
-                                                        eventService.deleteEvent(id!).then(() => navigate('/ngo-dashboard'));
-                                                    }
-                                                }}
-                                            >
-                                                <Trash2 className="h-5 w-5 mr-2" /> Delete Mission
-                                            </Button>
+                                            {!isMissionClosed && (
+                                                <>
+                                                    <Button
+                                                        className="w-full py-6 font-bold text-lg rounded-xl group"
+                                                        onClick={() => navigate(`/ngo-edit/${id}`)}
+                                                    >
+                                                        <Edit className="h-5 w-5 mr-2" /> Edit Mission
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="w-full py-6 font-bold text-lg rounded-xl text-rose-600 border-rose-100 hover:bg-rose-50"
+                                                        onClick={() => {
+                                                            if (window.confirm('Are you sure you want to delete this event?')) {
+                                                                eventService.deleteEvent(id!).then(() => navigate('/ngo-dashboard'));
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-5 w-5 mr-2" /> Delete Mission
+                                                    </Button>
+                                                </>
+                                            )}
                                         </div>
                                     </CardContent>
                                 </Card>
                             ) : (
                                 <>
+                                    {isMissionClosed ? (
+                                        <MissionClosedCard
+                                            status={event.status}
+                                            hasJoined={hasJoined}
+                                            onWaitlist={onWaitlist}
+                                            className="hidden lg:block"
+                                        />
+                                    ) : isGuest ? (
+                                        <GuestMissionCta returnPath={location.pathname} className="hidden lg:block" />
+                                    ) : (
                                     <Card className="shadow-xl border-slate-100 hidden lg:block overflow-hidden relative">
                                         <div className="absolute top-0 left-0 w-full h-1 bg-hive-primary" />
                                         <CardContent className="p-6 space-y-6">
@@ -821,7 +862,7 @@ export default function EventDetail() {
                                                     )}
                                                 </Button>
 
-                                                {(hasJoined || onWaitlist) && (
+                                                {canVolunteerParticipate && (hasJoined || onWaitlist) && (
                                                     <Button
                                                         variant="outline"
                                                         className="w-full py-4 text-rose-600 border-rose-100 hover:bg-rose-50 text-xs font-bold uppercase tracking-wider"
@@ -849,6 +890,7 @@ export default function EventDetail() {
                                             </div>
                                         </CardContent>
                                     </Card>
+                                    )}
 
                                     {/* Organizer Card */}
                                     <Card className="border-slate-100">
@@ -900,24 +942,35 @@ export default function EventDetail() {
                         >
                             <ClipboardList className="h-5 w-5" />
                         </Button>
-                        <Button
-                            className="flex-1 py-4 font-bold rounded-xl shadow-hive"
-                            onClick={() => navigate(`/ngo-edit/${id}`)}
-                        >
-                            <Edit className="h-5 w-5 mr-2" /> Edit Mission
-                        </Button>
-                        <Button
-                            variant="outline"
-                            className="p-4 rounded-xl text-rose-600 border-rose-100"
-                            onClick={() => {
-                                if (window.confirm('Are you sure you want to delete this event?')) {
-                                    eventService.deleteEvent(id!).then(() => navigate('/ngo-dashboard'));
-                                }
-                            }}
-                        >
-                            <Trash2 className="h-5 w-5" />
-                        </Button>
+                        {!isMissionClosed && (
+                            <>
+                                <Button
+                                    className="flex-1 py-4 font-bold rounded-xl shadow-hive"
+                                    onClick={() => navigate(`/ngo-edit/${id}`)}
+                                >
+                                    <Edit className="h-5 w-5 mr-2" /> Edit Mission
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="p-4 rounded-xl text-rose-600 border-rose-100"
+                                    onClick={() => {
+                                        if (window.confirm('Are you sure you want to delete this event?')) {
+                                            eventService.deleteEvent(id!).then(() => navigate('/ngo-dashboard'));
+                                        }
+                                    }}
+                                >
+                                    <Trash2 className="h-5 w-5" />
+                                </Button>
+                            </>
+                        )}
                     </>
+                ) : isMissionClosed ? (
+                    <div className="flex-1 py-4 text-center text-sm font-bold text-slate-600 rounded-xl bg-slate-50 border border-slate-200">
+                        Mission {event.status}
+                        {(hasJoined || onWaitlist) && ' · You were registered'}
+                    </div>
+                ) : isGuest ? (
+                    <GuestMissionCta returnPath={location.pathname} compact />
                 ) : (
                     <>
                         <Button
@@ -955,6 +1008,100 @@ export default function EventDetail() {
                 )}
             </div>
         </div>
+    );
+}
+
+function MissionClosedCard({
+    status,
+    hasJoined,
+    onWaitlist,
+    className
+}: {
+    status: string;
+    hasJoined: boolean;
+    onWaitlist: boolean;
+    className?: string;
+}) {
+    return (
+        <Card className={cn('shadow-xl border-slate-100 overflow-hidden', className)}>
+            <CardContent className="p-6 space-y-3 text-center">
+                <CheckCircle2 className="h-10 w-10 text-slate-400 mx-auto" />
+                <h3 className="text-lg font-bold text-hive-text-primary capitalize">
+                    Mission {status}
+                </h3>
+                <p className="text-xs text-hive-text-secondary leading-relaxed">
+                    {hasJoined || onWaitlist
+                        ? 'You were registered for this mission. New volunteers cannot join.'
+                        : 'This mission is no longer accepting volunteers.'}
+                </p>
+            </CardContent>
+        </Card>
+    );
+}
+
+function GuestMissionCta({
+    returnPath,
+    compact,
+    className
+}: {
+    returnPath: string;
+    compact?: boolean;
+    className?: string;
+}) {
+    const navigate = useNavigate();
+
+    if (compact) {
+        return (
+            <div className={cn('flex flex-1 gap-3 w-full', className)}>
+                <Button
+                    variant="outline"
+                    className="flex-1 py-4 font-bold rounded-xl"
+                    onClick={() => navigate('/login', { state: { from: returnPath } })}
+                >
+                    Log in
+                </Button>
+                <Button
+                    className="flex-1 py-4 font-bold rounded-xl shadow-hive"
+                    onClick={() =>
+                        navigate('/register', { state: { role: 'volunteer', from: returnPath } })
+                    }
+                >
+                    Register
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <Card className={cn('shadow-xl border-slate-100 overflow-hidden relative', className)}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-hive-primary" />
+            <CardContent className="p-6 space-y-6">
+                <div className="space-y-2">
+                    <h3 className="text-xl font-bold text-hive-text-primary">Interested in helping?</h3>
+                    <p className="text-xs text-hive-text-secondary leading-relaxed">
+                        Browse mission details freely. Log in or create a volunteer account to join,
+                        RSVP, or pledge resources.
+                    </p>
+                </div>
+                <div className="space-y-3">
+                    <Button
+                        className="w-full py-6 font-bold text-lg rounded-xl shadow-hive"
+                        onClick={() => navigate('/login', { state: { from: returnPath } })}
+                    >
+                        Log in to join
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="w-full py-4 font-bold rounded-xl"
+                        onClick={() =>
+                            navigate('/register', { state: { role: 'volunteer', from: returnPath } })
+                        }
+                    >
+                        Create volunteer account
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 

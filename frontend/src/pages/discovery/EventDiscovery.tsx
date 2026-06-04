@@ -110,15 +110,14 @@ export default function EventDiscovery() {
             <div className="bg-white border-b border-slate-100 sticky top-0 z-40 px-4 sm:px-6 lg:px-8 py-4">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
                     <div className="flex items-center gap-6 w-full md:w-auto">
-                        {authService.getCurrentUser()?.role === 'volunteer' && (
-                            <button
-                                onClick={() => navigate('/dashboard')}
-                                className="p-2 -ml-2 text-hive-text-secondary hover:text-hive-text-primary transition-colors flex items-center gap-1 group shrink-0"
-                            >
-                                <ChevronLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-                                <span className="text-sm font-bold">Dashboard</span>
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={() => navigate('/')}
+                            className="p-2 -ml-2 text-hive-text-secondary hover:text-hive-text-primary transition-colors flex items-center gap-1 group shrink-0"
+                        >
+                            <ChevronLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+                            <span className="text-sm font-bold">Home</span>
+                        </button>
 
                         <div className="relative w-full md:w-80">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-hive-text-secondary" />
@@ -290,15 +289,7 @@ export default function EventDiscovery() {
                                             <Button
                                                 size="sm"
                                                 className="w-full mt-2 h-7 text-[10px]"
-                                                onClick={() => {
-                                                    const user = authService.getCurrentUser();
-                                                    if (!user) {
-                                                        alert("Please create a volunteer account to see the full mission details and join the cause!");
-                                                        navigate('/register', { state: { role: 'volunteer' } });
-                                                        return;
-                                                    }
-                                                    navigate(missionPath(event));
-                                                }}
+                                                onClick={() => navigate(missionPath(event))}
                                             >
                                                 {isJoined ? "View Mission" : "View Detail"}
                                             </Button>
@@ -340,12 +331,6 @@ function DiscoveryEventCard({
     const date = new Date(event.date).toLocaleDateString();
 
     const handleViewDetail = () => {
-        const user = authService.getCurrentUser();
-        if (!user) {
-            alert("Please create a volunteer account to see the full mission details and join the cause!");
-            navigate('/register', { state: { role: 'volunteer' } });
-            return;
-        }
         navigate(missionPath(event));
     };
 

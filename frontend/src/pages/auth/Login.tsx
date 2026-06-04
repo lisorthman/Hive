@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -12,6 +12,8 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
+    const location = useLocation();
+    const returnTo = (location.state as { from?: string } | null)?.from;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -21,7 +23,10 @@ export default function Login() {
         try {
             const data = await authService.login({ email, password });
 
-            // Redirect based on role
+            if (returnTo && data.user.role === 'volunteer') {
+                navigate(returnTo);
+                return;
+            }
             if (data.user.role === 'admin') {
                 navigate('/admin');
             } else if (data.user.role === 'ngo') {

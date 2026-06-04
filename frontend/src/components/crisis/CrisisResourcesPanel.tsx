@@ -19,7 +19,7 @@ export function CrisisResourcesPanel({ eventId, canManage, immediateNeeds = [] }
     const [unit, setUnit] = useState('units');
     const [pledgeQty, setPledgeQty] = useState<Record<string, number>>({});
     const [busy, setBusy] = useState(false);
-    const user = authService.getCurrentUser();
+    const user = authService.isAuthenticated() ? authService.getCurrentUser() : null;
 
     const load = async () => {
         try {
