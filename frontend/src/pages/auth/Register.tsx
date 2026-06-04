@@ -9,6 +9,7 @@ import { Users, Building2, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authService } from '../../lib/auth';
+import { validatePassword } from '../../lib/passwordValidation';
 
 type Role = 'volunteer' | 'ngo';
 
@@ -22,6 +23,7 @@ export default function Register() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordError, setPasswordError] = useState<string | null>(null);
 
     const [verificationDoc, setVerificationDoc] = useState<File | null>(null);
 
@@ -30,8 +32,16 @@ export default function Register() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        const pwdErr = validatePassword(password);
+        if (pwdErr) {
+            setPasswordError(pwdErr);
+            setError(pwdErr);
+            return;
+        }
+        setPasswordError(null);
+
         if (password !== confirmPassword) {
-            setError("Passwords do not match");
+            setError('Passwords do not match');
             return;
         }
 
@@ -158,10 +168,21 @@ export default function Register() {
                                 type="password"
                                 placeholder="••••••••"
                                 required
+                                minLength={8}
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={(e) => {
+                                    setPassword(e.target.value);
+                                    setPasswordError(
+                                        e.target.value ? validatePassword(e.target.value) : null
+                                    );
+                                }}
                             />
-                            <p className="text-[10px] text-hive-text-secondary px-1">Must be at least 8 characters with at least one number.</p>
+                            <p className="text-[10px] text-hive-text-secondary px-1">
+                                At least 8 characters with one number.
+                            </p>
+                            {passwordError && (
+                                <p className="text-[10px] text-rose-600 px-1 font-medium">{passwordError}</p>
+                            )}
                         </div>
 
                         <Input

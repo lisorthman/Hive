@@ -4,6 +4,7 @@ const {
     generateEmailVerificationToken,
     sendVerificationEmail
 } = require('../utils/emailVerification');
+const { validatePassword } = require('../utils/passwordValidation');
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -17,6 +18,14 @@ exports.register = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 error: 'Please provide a valid email address'
+            });
+        }
+
+        const passwordCheck = validatePassword(password);
+        if (!passwordCheck.valid) {
+            return res.status(400).json({
+                success: false,
+                error: passwordCheck.error
             });
         }
 
