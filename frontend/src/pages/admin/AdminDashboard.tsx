@@ -491,6 +491,13 @@ export default function AdminDashboard() {
                                             </TableRow>
                                         ) : (
                                             adminUsers
+                                                .filter(
+                                                    (u) =>
+                                                        !(
+                                                            u.role === 'ngo' &&
+                                                            u.verificationStatus === 'pending'
+                                                        )
+                                                )
                                                 .filter((u) => {
                                                     const q = userSearch.toLowerCase();
                                                     if (!q) return true;
