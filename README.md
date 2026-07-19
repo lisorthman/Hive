@@ -9,11 +9,12 @@ Repository: [github.com/lisorthman/Hive](https://github.com/lisorthman/Hive)
 ## Features
 
 ### Volunteers
+- **Guest access** to browse missions and events before logging in
 - Browse and filter events on a map (OpenStreetMap + Nominatim geocoding)
 - Join missions or join a **waitlist** when events are full
 - **Email verification** before first login (dev mode prints the link in the backend console)
 - Profile with interests, skills, availability, and bio
-- QR / code **check-in**, badges, **leaderboard**, and digital **impact resume**
+- QR / code **check-in**, badges, **leaderboard**, and digital **impact resume** (limited to checked-in missions)
 - **Reviews** (after verified attendance) and threaded **event discussions**
 - **Impact Stories feed** — browse all stories, filter **My missions** or **Saved**, like, comment, save, and share
 - Submit short **volunteer additions** on stories (NGO approves before they appear)
@@ -21,18 +22,18 @@ Repository: [github.com/lisorthman/Hive](https://github.com/lisorthman/Hive)
 - **Crisis Hub** — opt in for emergency alerts, join crisis missions with safety acknowledgment, rapid check-in, resource pledges, and live situation updates
 
 ### NGOs
-- Create and manage events with map-based location search and pin placement
-- Attendance management, check-in codes, and volunteer notifications
+- Create and manage events with map-based location search, pin placement, and shift slot capacity caps
+- Attendance management, check-in codes, and volunteer notifications (completed missions lock automatically)
 - **Mission hub** per event (stats, discussion moderation context)
-- Public **NGO profile** (verified organizations only)
-- Volunteer feedback summary on the dashboard
+- Public **NGO profile** showing regular events and active emergency missions
+- Volunteer feedback summary and separated active/completed events on the dashboard
 - **Impact report export** (CSV or PDF): attendance, hours, ratings, and event list
 - **Impact Stories** — publish after mission completion, tag checked-in volunteers (search + tag all), public or community visibility
 - **Quick publish wizard** — generate draft and tag all eligible volunteers from mission hub
 - **Crisis Hub** — launch emergency missions, broadcast targeted alerts, manage resource requests, partner NGOs, live updates, and post-crisis analytics
 
 ### Admins
-- Approve or reject NGO registrations (document upload on register)
+- Filter pending NGOs and approve or reject registrations (document upload on register)
 - **Audit log**: NGO status changes, admin comment deletions, and event deletions (who, what, when, SHA-256 payload hash)
 - **Impact moderation queue** — review reported posts and comments (posts and comments)
 - **Active Crises** — national oversight of ongoing emergency missions
@@ -49,7 +50,7 @@ Hive Crisis Hub extends planned volunteering with **urgent disaster response** �
 | Alerts | In-app notifications to matched, opted-in volunteers |
 | Rapid check-in | One-tap deployment check-in on active crisis missions (no QR code) |
 | Resources | NGOs post supply needs; volunteers pledge quantities |
-| Live updates | Situation timeline on mission pages and public summary |
+| Live updates | Situation timeline on mission pages, public summary, and notifications to joined volunteers |
 | Analytics | Response times, deployment rate, hours, and resource pledges |
 | Partners | NGOs invite verified partners to collaborate on a crisis |
 
@@ -187,7 +188,7 @@ npm run preview
 
 | Prefix | Purpose |
 |--------|---------|
-| `/api/auth` | Register, login, profile, email verification |
+| `/api/auth` | Register (with strict password rules), login, profile, email verification |
 | `/api/events` | CRUD, join, leave, waitlist |
 | `/api/attendance` | Check-in, stats, NGO attendance tools |
 | `/api/reviews` | Event reviews and NGO summary |
