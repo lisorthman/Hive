@@ -53,15 +53,8 @@ app.use('/api/impact-posts', impactPosts);
 app.use('/api/impact-comments', impactComments);
 app.use('/api/crisis', crisis);
 
-// Serve public uploads (impact story photos only).
-// NGO verification documents are private: they are stored in backend/private/ngo-documents
-// and are only available to admins via GET /api/admin/ngos/:id/document.
-const path = require('path');
-app.use('/uploads/impact', express.static(path.join(__dirname, 'uploads/impact'), {
-    dotfiles: 'deny',
-    index: false,
-    setHeaders: (res) => res.set('X-Content-Type-Options', 'nosniff')
-}));
+// Serve public uploads (impact story photos only). NGO documents are private.
+app.use('/uploads', require('./middleware/publicUploads'));
 
 const PORT = process.env.PORT || 5000;
 
