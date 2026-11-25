@@ -207,7 +207,8 @@ All protected routes use `Authorization: Bearer <token>`.
 - **Volunteer email verification**: After register or resend, copy the verification URL from the backend terminal when `NODE_ENV` is not `production`.
 - **NGO registration**: Requires a verification document (PDF); admins approve via `/admin`.
 - **Maps**: Respect [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) for geocoding in production (rate limits, attribution).
-- Uploaded NGO documents are served from `/uploads` on the backend.
+- NGO verification documents are stored privately in `backend/private/ngo-documents` with random file names. They are **not** publicly served; admins view them through `GET /api/admin/ngos/:id/document` (admin JWT required, each view is written to the audit log). Only impact story photos are public, under `/uploads/impact`.
+- If your database has NGOs created before this change (documents under `backend/uploads`), run `npm run migrate:ngo-docs` in `backend` once to move them into private storage.
 
 ## License
 

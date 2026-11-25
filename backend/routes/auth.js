@@ -12,7 +12,7 @@ const upload = require('../middleware/upload');
 
 const router = express.Router();
 
-router.post('/register', upload.single('verificationDocument'), register);
+router.post('/register', upload.ngoDocument('verificationDocument'), register);
 router.post('/login', login);
 router.get('/verify-email/:token', verifyEmail);
 router.post('/resend-verification', resendVerification);

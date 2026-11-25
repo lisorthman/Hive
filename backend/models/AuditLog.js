@@ -19,6 +19,7 @@ const auditLogSchema = new mongoose.Schema({
         type: String,
         enum: [
             'ngo_status_changed',
+            'ngo_document_viewed',
             'comment_deleted',
             'event_deleted',
             'user_suspended',

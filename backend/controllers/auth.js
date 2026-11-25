@@ -5,11 +5,22 @@ const {
     sendVerificationEmail
 } = require('../utils/emailVerification');
 const { validatePassword } = require('../utils/passwordValidation');
+const fs = require('fs');
+
+// An uploaded NGO document is only kept if it ends up linked to a new NGO account.
+// Failed or non-NGO registrations must not leave orphan files in private storage.
+const discardUploadUnlessSaved = (req, res) => {
+    if (!req.file) return;
+    res.on('finish', () => {
+        if (!req.file.saved) fs.unlink(req.file.path, () => {});
+    });
+};
 
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res) => {
+    discardUploadUnlessSaved(req, res);
     try {
         const { name, password, role } = req.body;
         const email = (req.body.email || '').trim().toLowerCase();
@@ -47,7 +58,8 @@ exports.register = async (req, res) => {
                     error: 'Please upload a verification document (PDF)'
                 });
             }
-            verificationDocument = `uploads/${req.file.filename}`;
+            // Store only the random file name. The file lives in private storage.
+            verificationDocument = req.file.filename;
         }
 
         const userPayload = {
@@ -66,6 +78,7 @@ exports.register = async (req, res) => {
         }
 
         const user = await User.create(userPayload);
+        if (assignedRole === 'ngo' && req.file) req.file.saved = true;
 
         if (assignedRole === 'volunteer') {
             const verificationLink = sendVerificationEmail({
@@ -260,7 +273,7 @@ exports.resendVerification = async (req, res) => {
 exports.getMe = async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select(
-            '-password -emailVerificationToken -emailVerificationExpire'
+            '-password -emailVerificationToken -emailVerificationExpire -verificationDocument'
         );
         res.status(200).json({ success: true, data: user });
     } catch (err) {
@@ -292,7 +305,7 @@ exports.updateProfile = async (req, res) => {
         const user = await User.findByIdAndUpdate(req.user.id, updates, {
             new: true,
             runValidators: true
-        }).select('-password -emailVerificationToken -emailVerificationExpire');
+        }).select('-password -emailVerificationToken -emailVerificationExpire -verificationDocument');
 
         res.status(200).json({ success: true, data: user });
     } catch (err) {
