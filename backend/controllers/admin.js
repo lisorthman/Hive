@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Event = require('../models/Event');
 const AuditLog = require('../models/AuditLog');
 const { recordAudit } = require('../utils/auditLog');
+const { resolveNgoDocumentPath, removeNgoDocument } = require('../utils/ngoDocuments');
 
 // @desc    Get all NGOs (filtered by status query param optional)
 // @route   GET /api/admin/ngos
@@ -15,15 +16,61 @@ exports.getNGOs = async (req, res) => {
         }
 
         const users = await User.find(query);
+        // Do not expose where documents are stored. The client only needs to know
+        // whether one exists, and fetches it via GET /api/admin/ngos/:id/document.
+        const data = users.map((u) => {
+            const ngo = u.toObject();
+            ngo.hasVerificationDocument = Boolean(ngo.verificationDocument);
+            delete ngo.verificationDocument;
+            return ngo;
+        });
         res.status(200).json({
             success: true,
-            data: users
+            data
         });
     } catch (err) {
         res.status(500).json({
             success: false,
             error: 'Server Error'
         });
+    }
+};
+
+// @desc    Stream an NGO's verification document (admin only, audited)
+// @route   GET /api/admin/ngos/:id/document
+// @access  Private/Admin
+exports.getNGODocument = async (req, res) => {
+    try {
+        const ngo = await User.findById(req.params.id).select('name role verificationDocument');
+        if (!ngo || ngo.role !== 'ngo') {
+            return res.status(404).json({ success: false, error: 'NGO not found' });
+        }
+
+        const filePath = resolveNgoDocumentPath(ngo.verificationDocument);
+        if (!filePath) {
+            return res.status(404).json({ success: false, error: 'Verification document not found' });
+        }
+
+        await recordAudit({
+            actor: req.user,
+            action: 'ngo_document_viewed',
+            targetType: 'user',
+            targetId: ngo._id,
+            payload: { ngoId: ngo._id.toString(), ngoName: ngo.name }
+        });
+
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `inline; filename="ngo-${ngo._id}.pdf"`,
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff'
+        });
+        return res.sendFile(filePath);
+    } catch (err) {
+        if (err.name === 'CastError') {
+            return res.status(404).json({ success: false, error: 'NGO not found' });
+        }
+        return res.status(500).json({ success: false, error: 'Server Error' });
     }
 };
 
@@ -249,7 +296,9 @@ exports.removeUser = async (req, res) => {
             }
         });
 
+        const documentRef = user.verificationDocument;
         await user.deleteOne();
+        if (user.role === 'ngo') removeNgoDocument(documentRef);
 
         res.status(200).json({ success: true, data: {} });
     } catch (err) {

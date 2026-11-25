@@ -29,3 +29,10 @@ dist-ssr
 backend/uploads/*
 !backend/uploads/.gitkeep
 
+
+# Private NGO verification documents (never commit)
+backend/private/*
+!backend/private/.gitkeep
+
+# Course material (not part of the app)
+lec/

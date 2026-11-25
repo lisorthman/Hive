@@ -1,6 +1,7 @@
 const express = require('express');
 const {
     getNGOs,
+    getNGODocument,
     updateNGOStatus,
     getAuditLogs,
     getAdminStats,
@@ -21,6 +22,7 @@ router.get('/users', getAdminUsers);
 router.put('/users/:id/account-status', updateUserAccountStatus);
 router.delete('/users/:id', removeUser);
 router.get('/ngos', getNGOs);
+router.get('/ngos/:id/document', getNGODocument);
 router.get('/audit-logs', getAuditLogs);
 router.put('/ngo-status/:id', updateNGOStatus);
 

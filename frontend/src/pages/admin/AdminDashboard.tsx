@@ -31,7 +31,7 @@ import {
 } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
 import { cn } from '../../lib/utils';
-import { authService, API_URL } from '../../lib/auth';
+import { authService } from '../../lib/auth';
 import { adminService } from '../../lib/admin';
 import { eventService } from '../../lib/events';
 import { PlatformEventsCalendar } from '../../components/calendar/PlatformEventsCalendar';
@@ -161,6 +161,15 @@ export default function AdminDashboard() {
             setNgoRequests(data);
         } catch (error) {
             console.error('Failed to fetch NGOs:', error);
+        }
+    };
+
+    const handleViewDocument = async (ngoId: string) => {
+        try {
+            await adminService.openNgoDocument(ngoId);
+        } catch (error) {
+            console.error('Failed to open NGO document:', error);
+            alert(error instanceof Error ? error.message : 'Could not open document');
         }
     };
 
@@ -416,16 +425,16 @@ export default function AdminDashboard() {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-1">
-                                                        {ngo.verificationDocument && (
-                                                            <a
-                                                                href={`${API_URL.replace('/api', '')}/${ngo.verificationDocument}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
+                                                        {ngo.hasVerificationDocument && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleViewDocument(ngo._id)}
                                                                 className="inline-flex items-center justify-center h-8 w-8 text-hive-text-secondary hover:text-hive-primary hover:bg-hive-primary/5 rounded-lg transition-colors mr-2"
                                                                 title="View Document"
+                                                                aria-label={`View verification document for ${ngo.name}`}
                                                             >
                                                                 <FileText className="h-4 w-4" />
-                                                            </a>
+                                                            </button>
                                                         )}
                                                         {ngoFilter !== 'verified' && (
                                                             <Button

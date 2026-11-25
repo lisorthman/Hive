@@ -1,6 +1,38 @@
 import { API_URL } from './auth';
 
 export const adminService = {
+    /**
+     * Open an NGO verification document (admin only).
+     * The PDF is fetched with the admin's token and shown from a temporary blob URL,
+     * so there is no public link to the file.
+     */
+    async openNgoDocument(ngoId: string) {
+        // Open the tab during the click so pop-up blockers allow it.
+        const tab = window.open('', '_blank');
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/admin/ngos/${encodeURIComponent(ngoId)}/document`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                let message = 'Could not open document';
+                try {
+                    const data = await response.json();
+                    if (data?.error) message = data.error;
+                } catch { /* response was not JSON */ }
+                throw new Error(message);
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+            if (tab) tab.location.href = url;
+            else window.open(url, '_blank', 'noopener');
+            setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } catch (err) {
+            tab?.close();
+            throw err;
+        }
+    },
+
     async getStats() {
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_URL}/admin/stats`, {

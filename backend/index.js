@@ -53,9 +53,8 @@ app.use('/api/impact-posts', impactPosts);
 app.use('/api/impact-comments', impactComments);
 app.use('/api/crisis', crisis);
 
-// Serve uploads
-const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve public uploads (impact story photos only). NGO documents are private.
+app.use('/uploads', require('./middleware/publicUploads'));
 
 const PORT = process.env.PORT || 5000;
 

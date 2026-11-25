@@ -8,6 +8,7 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 
+const { NGO_DOCS_DIR, ensureNgoDocsDir } = require('../utils/ngoDocuments');
 const User = require('../models/User');
 const Event = require('../models/Event');
 const EventSeries = require('../models/EventSeries');
@@ -70,9 +71,9 @@ const main = async () => {
         console.log('MongoDB connected.\n');
         console.log('=== Seeding Hive full demo data ===\n');
 
-        const uploadsDir = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-        const placeholderDoc = path.join(uploadsDir, 'seed-demo-ngo.pdf');
+        // NGO verification documents live in private storage (not publicly served).
+        ensureNgoDocsDir();
+        const placeholderDoc = path.join(NGO_DOCS_DIR, 'seed-demo-ngo.pdf');
         if (!fs.existsSync(placeholderDoc)) {
             fs.writeFileSync(placeholderDoc, '%PDF-1.4 demo placeholder');
         }
@@ -94,7 +95,7 @@ const main = async () => {
             role: 'ngo',
             fields: {
                 verificationStatus: 'verified',
-                verificationDocument: 'uploads/seed-demo-ngo.pdf',
+                verificationDocument: 'seed-demo-ngo.pdf',
                 accountStatus: 'active',
                 bio: 'Protecting coastlines and communities through volunteer action.'
             }
@@ -107,7 +108,7 @@ const main = async () => {
             role: 'ngo',
             fields: {
                 verificationStatus: 'pending',
-                verificationDocument: 'uploads/seed-demo-ngo.pdf',
+                verificationDocument: 'seed-demo-ngo.pdf',
                 accountStatus: 'active',
                 bio: 'Awaiting admin approval — use to test NGO verification flow.'
             }
@@ -120,7 +121,7 @@ const main = async () => {
             role: 'ngo',
             fields: {
                 verificationStatus: 'verified',
-                verificationDocument: 'uploads/seed-demo-ngo.pdf',
+                verificationDocument: 'seed-demo-ngo.pdf',
                 accountStatus: 'active',
                 bio: 'Partner NGO for crisis collaboration demos.'
             }
