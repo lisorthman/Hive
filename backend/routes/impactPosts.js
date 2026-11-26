@@ -45,7 +45,7 @@ router.post(
     '/upload-photos',
     protect,
     requireVerifiedNgoOrAdmin,
-    uploadImpactMedia.array('photos', 10),
+    uploadImpactMedia.photos('photos', 10),
     uploadImpactPhotos
 );
 router.post('/', protect, requireVerifiedNgoOrAdmin, createImpactPost);

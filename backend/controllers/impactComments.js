@@ -125,6 +125,7 @@ exports.deleteImpactComment = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'impact_comment_deleted',
             targetType: 'impact_comment',
             targetId: comment._id,
@@ -159,6 +160,7 @@ exports.reportImpactComment = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'impact_content_flagged',
             targetType: 'impact_comment',
             targetId: comment._id,

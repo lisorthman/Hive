@@ -11,6 +11,14 @@ connectDB();
 
 const app = express();
 
+// R5 (§8.3.2): the logged client IP is req.ip. X-Forwarded-For is only trusted when the
+// operator says the app runs behind a proxy (TRUST_PROXY=1, a hop count, or e.g. "loopback");
+// otherwise a client could forge the IP recorded in the security log.
+if (process.env.TRUST_PROXY) {
+    const trust = process.env.TRUST_PROXY.trim();
+    app.set('trust proxy', /^\d+$/.test(trust) ? Number(trust) : trust === 'true' ? 1 : trust);
+}
+
 // Body parser
 app.use(express.json());
 
@@ -20,6 +28,9 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// R5 – security event capture (§8.3.1). Must run before the routers.
+app.use(require('./middleware/securityMonitor').securityMonitor);
 
 // Route files
 const auth = require('./routes/auth');
@@ -61,3 +72,15 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
+
+// R5 (§8.3.4/§8.3.7): verify the security log hash chain on a schedule (default every
+// 24 hours, first run 1 minute after start-up). A failed check raises a critical alert.
+const { verifyAndRecord } = require('./utils/securityLog');
+const verifyHours = Number(process.env.SECURITY_VERIFY_INTERVAL_HOURS || 24);
+if (verifyHours > 0) {
+    const runCheck = () => verifyAndRecord({ source: 'scheduled' }).catch((err) => {
+        console.error('[security-log] scheduled integrity check failed:', err.message);
+    });
+    setTimeout(runCheck, 60 * 1000).unref();
+    setInterval(runCheck, verifyHours * 60 * 60 * 1000).unref();
+}

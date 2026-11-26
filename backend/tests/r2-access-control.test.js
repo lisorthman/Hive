@@ -18,6 +18,11 @@ const jwt = require('jsonwebtoken');
 
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const SecurityEvent = require('../models/SecurityEvent');
+const SecurityAlert = require('../models/SecurityAlert');
+const Notification = require('../models/Notification');
+const { flush: flushSecurityLog } = require('../utils/securityLog');
+const { createFakeSecurityStore } = require('./helpers/fakeSecurityStore');
 const upload = require('../middleware/upload');
 const {
     NGO_DOCS_DIR,
@@ -55,6 +60,8 @@ const fakeQuery = (value) => ({
 let server;
 let baseUrl;
 const originals = {};
+// R5: recordAudit mirrors into the security log; keep that in memory too.
+const securityStore = createFakeSecurityStore();
 
 before(async () => {
     fs.writeFileSync(path.join(NGO_DOCS_DIR, TEST_DOC), '%PDF-1.4 r2 test document');
@@ -65,6 +72,7 @@ before(async () => {
     User.findById = (id) => fakeQuery(users[String(id)] || null);
     User.findOne = () => fakeQuery({ _id: IDS.ngo }); // every email "already exists"
     AuditLog.create = async (entry) => { auditEntries.push(entry); return entry; };
+    securityStore.install([SecurityEvent, SecurityAlert, Notification]);
 
     const app = express();
     app.use(express.json());
@@ -78,7 +86,9 @@ before(async () => {
     baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
-after(() => {
+after(async () => {
+    await flushSecurityLog();
+    securityStore.restore();
     server?.close();
     User.findById = originals.findById;
     User.findOne = originals.findOne;

@@ -168,6 +168,7 @@ exports.updateCrisisStatus = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'crisis_status_updated',
             targetType: 'event',
             targetId: mission._id,

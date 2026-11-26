@@ -53,6 +53,7 @@ exports.getNGODocument = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'ngo_document_viewed',
             targetType: 'user',
             targetId: ngo._id,
@@ -103,6 +104,7 @@ exports.updateNGOStatus = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'ngo_status_changed',
             targetType: 'user',
             targetId: user._id,
@@ -229,6 +231,7 @@ exports.updateUserAccountStatus = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: status === 'suspended' ? 'user_suspended' : 'user_activated',
             targetType: 'user',
             targetId: user._id,
@@ -285,6 +288,7 @@ exports.removeUser = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'user_removed',
             targetType: 'user',
             targetId: user._id,

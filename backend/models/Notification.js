@@ -40,7 +40,8 @@ const NotificationSchema = new mongoose.Schema({
             'crisis_resource_needed',
             'crisis_partner_invite',
             'crisis_partner_accepted',
-            'crisis_update'
+            'crisis_update',
+            'security_alert'
         ],
         default: 'volunteer_joined'
     },

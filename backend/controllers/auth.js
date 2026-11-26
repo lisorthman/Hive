@@ -6,6 +6,7 @@ const {
 } = require('../utils/emailVerification');
 const { validatePassword } = require('../utils/passwordValidation');
 const fs = require('fs');
+const { flagSecurityEvent } = require('../middleware/securityMonitor');
 
 // An uploaded NGO document is only kept if it ends up linked to a new NGO account.
 // Failed or non-NGO registrations must not leave orphan files in private storage.
@@ -24,6 +25,19 @@ exports.register = async (req, res) => {
     try {
         const { name, password, role } = req.body;
         const email = (req.body.email || '').trim().toLowerCase();
+
+        // R5 (§8.3.1): an attempt to self-register as admin is a privilege-escalation attempt.
+        // The role is still downgraded to volunteer below; this only records the attempt.
+        if (role === 'admin') {
+            flagSecurityEvent(res, {
+                eventType: 'access_denied',
+                outcome: 'denied',
+                reason: 'admin_self_registration_blocked',
+                severity: 'high',
+                email,
+                details: { requestedRole: 'admin', assignedRole: 'volunteer' }
+            });
+        }
 
         if (!email) {
             return res.status(400).json({
@@ -120,7 +134,10 @@ exports.login = async (req, res) => {
         const email = (req.body.email || '').trim().toLowerCase();
         const { password } = req.body;
 
+        // R5 (§8.3.1/§8.3.3): every login outcome is logged with the attempted email,
+        // never the password.
         if (!email || !password) {
+            flagSecurityEvent(res, { eventType: 'login_failure', outcome: 'failure', reason: 'missing_credentials', email });
             return res.status(400).json({
                 success: false,
                 error: 'Please provide an email and password'
@@ -130,6 +147,7 @@ exports.login = async (req, res) => {
         const user = await User.findOne({ email }).select('+password');
 
         if (!user) {
+            flagSecurityEvent(res, { eventType: 'login_failure', outcome: 'failure', reason: 'unknown_account', email });
             return res.status(401).json({
                 success: false,
                 error: 'Invalid credentials'
@@ -138,13 +156,18 @@ exports.login = async (req, res) => {
 
         const isMatch = await user.matchPassword(password);
         if (!isMatch) {
+            flagSecurityEvent(res, { eventType: 'login_failure', outcome: 'failure', reason: 'wrong_password', user, email });
             return res.status(401).json({
                 success: false,
                 error: 'Invalid credentials'
             });
         }
 
+        const denyLogin = (reason) =>
+            flagSecurityEvent(res, { eventType: 'login_denied', outcome: 'denied', reason, user, email });
+
         if (user.accountStatus === 'suspended') {
+            denyLogin('account_suspended');
             return res.status(403).json({
                 success: false,
                 error: 'Your account has been suspended. Contact an administrator.'
@@ -156,6 +179,7 @@ exports.login = async (req, res) => {
                 user.emailVerified = true;
                 await user.save({ validateBeforeSave: false });
             } else {
+                denyLogin('email_not_verified');
                 return res.status(403).json({
                     success: false,
                     error: 'Please verify your email before logging in. Check your inbox or resend the verification link.',
@@ -167,12 +191,14 @@ exports.login = async (req, res) => {
 
         if (user.role === 'ngo') {
             if (user.verificationStatus === 'pending') {
+                denyLogin('ngo_pending_verification');
                 return res.status(403).json({
                     success: false,
                     error: 'Your account is pending verification. Please wait for admin approval.'
                 });
             }
             if (user.verificationStatus === 'rejected') {
+                denyLogin('ngo_rejected');
                 return res.status(403).json({
                     success: false,
                     error: 'Your account application has been rejected. Please contact support.'
@@ -180,8 +206,18 @@ exports.login = async (req, res) => {
             }
         }
 
+        flagSecurityEvent(res, { eventType: 'login_success', outcome: 'success', user, email });
         sendTokenResponse(user, 200, res);
     } catch (err) {
+        // Never leave a login_success flag on a login that did not complete.
+        const flagged = res.locals.securityEvent;
+        flagSecurityEvent(res, {
+            eventType: 'login_failure',
+            outcome: 'failure',
+            reason: 'login_error',
+            user: flagged?.user,
+            email: flagged?.email
+        });
         console.error('Login error:', err.message);
         res.status(400).json({
             success: false,

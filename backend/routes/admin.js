@@ -9,6 +9,13 @@ const {
     updateUserAccountStatus,
     removeUser
 } = require('../controllers/admin');
+const {
+    getSecurityEvents,
+    getSecuritySummary,
+    verifySecurityLog,
+    getSecurityAlerts,
+    acknowledgeSecurityAlert
+} = require('../controllers/security');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -25,5 +32,13 @@ router.get('/ngos', getNGOs);
 router.get('/ngos/:id/document', getNGODocument);
 router.get('/audit-logs', getAuditLogs);
 router.put('/ngo-status/:id', updateNGOStatus);
+
+// R5 – security monitoring (Policy §8.3.6/§8.3.7). Read, verify and acknowledge only:
+// there is no route that edits or deletes security events (§8.3.5).
+router.get('/security-events', getSecurityEvents);
+router.get('/security-events/summary', getSecuritySummary);
+router.post('/security-events/verify', verifySecurityLog);
+router.get('/security-alerts', getSecurityAlerts);
+router.put('/security-alerts/:id/acknowledge', acknowledgeSecurityAlert);
 
 module.exports = router;

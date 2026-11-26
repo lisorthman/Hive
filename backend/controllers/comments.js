@@ -142,6 +142,7 @@ exports.deleteEventComment = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'comment_deleted',
             targetType: 'comment',
             targetId: comment._id,

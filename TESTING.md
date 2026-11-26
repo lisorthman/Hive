@@ -196,6 +196,37 @@ npm run seed
 
 ---
 
+### Security logging & monitoring (R5)
+
+Control C5 for risk R5 (OWASP A09:2025 – Security Logging & Alerting Failures, STRIDE: Repudiation), implementing Hive Information Security Policy §8 "Logging and Monitoring Policy". Automated tests: `cd backend && npm test` (`tests/r5-security-logging.test.js`).
+
+| Step | How to test | Expected |
+|------|-------------|----------|
+| Failed login | `/login` as `alex@volunteer.com` with a wrong password | `/admin` → **Security** tab → event log shows `login failure` / `wrong password`, IP, `POST /api/auth/login → 401` |
+| Refused request | Log in as alex, then in the browser console run `fetch('http://127.0.0.1:5001/api/admin/stats', { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })` | `access denied` / `role not permitted` with `requiredRoles: ["admin"]` |
+| Rejected upload | `/register` as NGO and upload a `.txt` renamed to `.pdf` | `upload rejected` / `content signature mismatch` |
+| Brute-force demo | Backend running, then `cd backend && npm run security:demo -- alex@volunteer.com 12` | 12 `login failure` events, **one** open alert per kind (account + IP), sidebar badge, bell notification `security_alert` for every active admin |
+| Acknowledge | Security tab → type a review note → **Acknowledge** | Alert shows reviewer + time; `security alert acknowledged` event with `minutesOpen` (§8.3.7: within 24 h). A second acknowledge is refused |
+| Tamper test | MongoDB Compass → `securityevents` → edit any field (e.g. `reason`) of one document → Security tab → **Verify integrity** (or `npm run security:verify`) | **Tampering detected** with the seq and `hash mismatch`; critical `Log integrity failure` alert + admin notification; CLI exits with code 1. Deleting a document shows `sequence gap`; deleting an `auditlogs` entry shows `audit entry deleted` |
+| No secrets in logs | Expand any event row; open `backend/logs/security-events.log` | No passwords, JWTs, `Authorization` headers or verification tokens (verify-email URLs show `:redacted`) |
+
+CLI checks: `npm run security:verify` exits **0** (intact), **1** (tampered) or **2** (could not run).
+
+Security events cannot be edited or deleted through the app: the model refuses every update/delete operation and there is no such API route. Records expire only through the `retention_ttl` index.
+
+| Env var (backend) | Default | Purpose |
+|-------------------|---------|---------|
+| `SECURITY_ALERT_THRESHOLD` | `10` | Failed/refused attempts per IP or account that open an alert |
+| `SECURITY_ALERT_WINDOW_MINUTES` | `5` | Sliding window for the threshold |
+| `SECURITY_LOG_RETENTION_DAYS` | `400` | TTL for security events; values below **365** are raised to 365 (§8.3.8) |
+| `SECURITY_LOG_FILE` | `backend/logs/security-events.log` | JSON-lines copy of every event (git-ignored); `off` disables it |
+| `TRUST_PROXY` | unset | Set only behind a reverse proxy (e.g. `1` or `loopback`), otherwise `X-Forwarded-For` is ignored so the logged IP cannot be forged |
+| `SECURITY_VERIFY_INTERVAL_HOURS` | `24` | Scheduled chain verification (first run 1 minute after start-up); `0` disables it |
+
+Residual risks: deleting the **newest** records cannot be detected from the chain alone (the JSON-lines file copy is the second source of evidence), and §8.3.9 requires server clocks to be synchronised with NTP.
+
+---
+
 ## Seeded data quick reference
 
 | Item | Details |

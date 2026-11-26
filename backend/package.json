@@ -10,7 +10,9 @@
     "seed:demo": "node scripts/seedDemoData.js",
     "seed": "node scripts/seedAdmin.js && node scripts/seedDemoData.js",
     "migrate:ngo-docs": "node scripts/migrateNgoDocuments.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test --test-concurrency=1 tests/*.test.js",
+    "security:verify": "node scripts/verifySecurityLog.js",
+    "security:demo": "node scripts/securityDemo.js"
   },
   "keywords": [],
   "author": "",

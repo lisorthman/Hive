@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 const { NGO_DOCS_DIR, ensureNgoDocsDir, hasPdfSignature } = require('../utils/ngoDocuments');
+const { flagSecurityEvent } = require('./securityMonitor');
 
 // NGO verification documents go to a private folder that is never served statically.
 ensureNgoDocsDir();
@@ -23,7 +24,10 @@ const fileFilter = (req, file, cb) => {
     if (file.mimetype === 'application/pdf' && ext === '.pdf') {
         cb(null, true);
     } else {
-        cb(new Error('Error: PDFs only!'), false);
+        const err = new Error('Error: PDFs only!');
+        err.code = 'INVALID_FILE_TYPE';
+        err.details = { declaredMimetype: file.mimetype, extension: ext };
+        cb(err, false);
     }
 };
 
@@ -41,10 +45,20 @@ upload.verifyPdfContent = (req, res, next) => {
     if (!req.file) return next();
     if (hasPdfSignature(req.file.path)) return next();
 
-    fs.unlink(req.file.path, () => {});
-    return res.status(400).json({
-        success: false,
-        error: 'Uploaded file is not a valid PDF'
+    // R5 (§8.3.1): a file whose content is not a PDF (spoofed type) is a security event.
+    flagSecurityEvent(res, {
+        eventType: 'upload_rejected',
+        outcome: 'denied',
+        reason: 'content_signature_mismatch',
+        severity: 'medium',
+        details: { field: req.file.fieldname, declaredMimetype: req.file.mimetype, size: req.file.size }
+    });
+    // Respond only once the rejected file is gone.
+    fs.unlink(req.file.path, () => {
+        res.status(400).json({
+            success: false,
+            error: 'Uploaded file is not a valid PDF'
+        });
     });
 };
 
@@ -58,6 +72,12 @@ upload.ngoDocument = (fieldName) => [
             const message = err.code === 'LIMIT_FILE_SIZE'
                 ? 'Verification document must be 5MB or smaller'
                 : err.message || 'Invalid upload';
+            flagSecurityEvent(res, {
+                eventType: 'upload_rejected',
+                outcome: 'denied',
+                reason: err.code === 'INVALID_FILE_TYPE' ? 'invalid_file_type' : String(err.code || 'upload_error').toLowerCase(),
+                details: { field: fieldName, ...(err.details || {}) }
+            });
             return res.status(400).json({ success: false, error: message });
         });
     },

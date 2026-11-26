@@ -430,6 +430,7 @@ exports.deleteEvent = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'event_deleted',
             targetType: 'event',
             targetId: event._id,

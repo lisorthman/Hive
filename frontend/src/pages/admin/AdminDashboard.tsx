@@ -14,7 +14,8 @@ import {
     Settings,
     LogOut,
     FileText,
-    AlertTriangle
+    AlertTriangle,
+    ShieldAlert
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import { Logo } from '../../components/ui/Logo';
@@ -36,10 +37,12 @@ import { adminService } from '../../lib/admin';
 import { eventService } from '../../lib/events';
 import { PlatformEventsCalendar } from '../../components/calendar/PlatformEventsCalendar';
 import { crisisService } from '../../lib/crisis';
+import { SecurityMonitorPanel } from '../../components/admin/SecurityMonitorPanel';
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'ngos' | 'users' | 'audit' | 'crises'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'ngos' | 'users' | 'audit' | 'crises' | 'security'>('overview');
+    const [openSecurityAlerts, setOpenSecurityAlerts] = useState(0);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [auditLoading, setAuditLoading] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -152,6 +155,9 @@ export default function AdminDashboard() {
         fetchAuditLogs();
         fetchImpactReports();
         fetchActiveCrises();
+        adminService.getSecuritySummary()
+            .then((s) => setOpenSecurityAlerts(s.openAlerts))
+            .catch(() => setOpenSecurityAlerts(0));
     }, []);
 
     const fetchNGOs = async (statusOverride?: string) => {
@@ -234,6 +240,7 @@ export default function AdminDashboard() {
                     <SidebarLink icon={Users} label="User Roles" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
                     <SidebarLink icon={ShieldCheck} label="Audit Log" active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} />
                     <SidebarLink icon={AlertTriangle} label="Active Crises" active={activeTab === 'crises'} onClick={() => setActiveTab('crises')} badge={activeCrises.length ? String(activeCrises.length) : undefined} />
+                    <SidebarLink icon={ShieldAlert} label="Security" active={activeTab === 'security'} onClick={() => setActiveTab('security')} badge={openSecurityAlerts ? String(openSecurityAlerts) : undefined} />
                     <div className="pt-4 mt-4 border-t border-slate-100 space-y-1">
                         <SidebarLink icon={Settings} label="System Config" active={false} />
                         <SidebarLink
@@ -614,6 +621,10 @@ export default function AdminDashboard() {
                                 </Table>
                             </CardContent>
                         </Card>
+                    )}
+
+                    {activeTab === 'security' && (
+                        <SecurityMonitorPanel onOpenAlertsChange={setOpenSecurityAlerts} />
                     )}
 
                     {activeTab === 'crises' && (

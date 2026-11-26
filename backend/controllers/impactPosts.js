@@ -677,6 +677,7 @@ exports.reportImpactPost = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'impact_content_flagged',
             targetType: 'impact_post',
             targetId: post._id,
@@ -719,6 +720,7 @@ exports.deleteImpactPost = async (req, res) => {
 
         await recordAudit({
             actor: req.user,
+            req,
             action: 'impact_post_deleted',
             targetType: 'impact_post',
             targetId: post._id,
@@ -893,6 +895,7 @@ exports.resolveReport = async (req, res) => {
 
             await recordAudit({
                 actor: req.user,
+                req,
                 action: 'impact_content_flagged',
                 targetType: report.targetType,
                 targetId: report.targetId,
